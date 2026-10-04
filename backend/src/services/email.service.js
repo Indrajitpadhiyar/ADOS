@@ -1,9 +1,13 @@
 import { env } from "../config/env.js";
 import { SecurityLogger } from "../utils/securityLogger.util.js";
+import nodemailer from "nodemailer";
 
 /**
  * Enterprise Email Dispatch Service
- * Handles transactional email delivery using Resend REST API with native fetch.
+ * Supports:
+ * 1. Nodemailer (Gmail SMTP) when EMAIL_PASS is configured (delivers to ANY recipient worldwide).
+ * 2. Resend REST API when RESEND_API_KEY is configured.
+ * 3. Local development console logging with the 6-digit code for instant verification.
  */
 export const EmailService = {
   /**
@@ -108,8 +112,6 @@ export const EmailService = {
    * @returns {Promise<{ success: boolean, messageId?: string, error?: string }>}
    */
   async sendVerificationEmail({ to, name, verificationUrl, verificationCode }) {
-    const apiKey = env.RESEND_API_KEY;
-
     // Developer convenience: Always log code and link in terminal during development
     console.log(`\n📬 =====================================================`);
     console.log(`✉️ [EMAIL DISPATCH] Recipient: ${to}`);
@@ -117,8 +119,50 @@ export const EmailService = {
     console.log(`🔗 Verification Link : ${verificationUrl}`);
     console.log(`=====================================================\n`);
 
+    const htmlContent = this.getVerificationEmailHtml({
+      name,
+      verificationUrl,
+      verificationCode,
+      expiresMinutes: env.EMAIL_VERIFICATION_EXPIRES_MINUTES,
+    });
+    const textContent = `Hi ${name || "there"},\n\nYour ADOS 6-digit verification code is: ${verificationCode}\n\nAlternatively, verify by clicking: ${verificationUrl}\n\nThis code will expire in ${env.EMAIL_VERIFICATION_EXPIRES_MINUTES} minutes.`;
+
+    // 1. Check if Gmail SMTP (EMAIL_PASS) is configured
+    if (env.EMAIL_PASS) {
+      try {
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: env.EMAIL_USER,
+            pass: env.EMAIL_PASS,
+          },
+        });
+
+        const info = await transporter.sendMail({
+          from: `"ADOS" <${env.EMAIL_USER}>`,
+          to,
+          subject: `${verificationCode} is your ADOS verification code`,
+          text: textContent,
+          html: htmlContent,
+        });
+
+        console.log(`✅ [EmailService] Gmail SMTP email delivered successfully to ${to} [MessageId: ${info.messageId}]`);
+        SecurityLogger.log("EMAIL_VERIFICATION_DISPATCHED", { outcome: "SUCCESS" });
+        return { success: true, messageId: info.messageId };
+      } catch (smtpErr) {
+        console.error("❌ [EmailService] Gmail SMTP Error:", smtpErr.message);
+        SecurityLogger.log("EMAIL_DISPATCH_FAILED", {
+          details: smtpErr.message,
+          outcome: "FAILURE",
+        });
+        return { success: false, error: smtpErr.message };
+      }
+    }
+
+    // 2. Fallback to Resend REST API
+    const apiKey = env.RESEND_API_KEY;
     if (!apiKey) {
-      console.warn("⚠️ [EmailService] RESEND_API_KEY is not configured. Simulating verification email dispatch.");
+      console.warn("⚠️ [EmailService] Neither RESEND_API_KEY nor EMAIL_PASS is configured. Verification simulated.");
       return { success: true, simulated: true };
     }
 
@@ -133,13 +177,8 @@ export const EmailService = {
           from: env.EMAIL_FROM,
           to: [to],
           subject: `${verificationCode} is your ADOS verification code`,
-          html: this.getVerificationEmailHtml({
-            name,
-            verificationUrl,
-            verificationCode,
-            expiresMinutes: env.EMAIL_VERIFICATION_EXPIRES_MINUTES,
-          }),
-          text: `Hi ${name || "there"},\n\nYour ADOS 6-digit verification code is: ${verificationCode}\n\nAlternatively, verify by clicking: ${verificationUrl}\n\nThis code will expire in ${env.EMAIL_VERIFICATION_EXPIRES_MINUTES} minutes.`,
+          html: htmlContent,
+          text: textContent,
         }),
       });
 
@@ -147,9 +186,9 @@ export const EmailService = {
 
       if (!response.ok) {
         console.error("❌ [EmailService] Resend API Error:", responseData);
-        if (responseData.message && responseData.message.includes("domain is not verified")) {
+        if (responseData.message && responseData.message.includes("only send testing emails to your own email address")) {
           console.warn(
-            `\n⚠️ [EmailService Notice] Resend's free tier only delivers to your registered account owner email (${env.EMAIL_FROM.includes("gmail") ? env.EMAIL_FROM : "your Resend email"}).\nUse the verification code shown in the console above: ${verificationCode}\nOr add your custom domain on https://resend.com/domains to send to any address.\n`
+            `\n⚠️ [Email Notice] Resend's free tier currently only delivers to ${env.EMAIL_USER}.\nUse the verification code printed in your console above: ${verificationCode}\nOr add EMAIL_PASS (Gmail App Password) in .env to deliver to ANY recipient!\n`
           );
         }
 
@@ -160,10 +199,8 @@ export const EmailService = {
         return { success: false, error: responseData.message };
       }
 
-      SecurityLogger.log("EMAIL_VERIFICATION_DISPATCHED", {
-        outcome: "SUCCESS",
-      });
-
+      console.log(`✅ [EmailService] Resend email dispatched to ${to} [ID: ${responseData.id}]`);
+      SecurityLogger.log("EMAIL_VERIFICATION_DISPATCHED", { outcome: "SUCCESS" });
       return { success: true, messageId: responseData.id };
     } catch (err) {
       console.error("❌ [EmailService] Unexpected Error:", err.message);

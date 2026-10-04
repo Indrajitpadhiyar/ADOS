@@ -17,6 +17,8 @@ const envSchema = z.object({
   COOKIE_SECRET: z.string().min(16, "COOKIE_SECRET must be at least 16 characters long"),
   RESEND_API_KEY: z.string().default(process.env.RESENDER_API_KEY || ""),
   EMAIL_FROM: z.string().default(process.env.EMAIL_FROM || "ADOS <onboarding@resend.dev>"),
+  EMAIL_USER: z.string().default(process.env.EMAIL || "idrtech23@gmail.com"),
+  EMAIL_PASS: z.string().optional(),
   APP_URL: z.string().url("APP_URL must be a valid URL").default("http://localhost:5173"),
   EMAIL_VERIFICATION_EXPIRES_MINUTES: z.coerce.number().default(30),
 });
