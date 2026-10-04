@@ -70,3 +70,19 @@ export const resetPasswordSchema = z
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
+
+export const verifyEmailSchema = z
+  .object({
+    token: z.string({ required_error: "Verification token is required" }).min(1, "Verification token is required"),
+  })
+  .strict();
+
+export const resendVerificationSchema = z
+  .object({
+    email: z
+      .string({ required_error: "Email is required" })
+      .trim()
+      .toLowerCase()
+      .email("Please provide a valid email address"),
+  })
+  .strict();

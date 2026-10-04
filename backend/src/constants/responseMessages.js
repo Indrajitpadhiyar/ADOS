@@ -9,6 +9,11 @@ export const ResponseMessages = Object.freeze({
   TOKEN_REFRESH_SUCCESS: "Access token refreshed successfully.",
   PASSWORD_RESET_LINK_SENT: "If that email exists in our system, a password reset link has been dispatched.",
   PASSWORD_RESET_SUCCESS: "Password has been successfully reset. Please log in with your new credentials.",
+  VERIFICATION_EMAIL_SENT: "Registration successful. A verification link has been sent to your email address.",
+  EMAIL_VERIFIED_SUCCESS: "Email verified successfully. Your account is now fully active.",
+  EMAIL_ALREADY_VERIFIED: "This email address has already been verified.",
+  VERIFICATION_TOKEN_INVALID_OR_EXPIRED: "Verification link is invalid or has expired. Please request a new one.",
+  RESEND_VERIFICATION_DISPATCHED: "If your email is registered and unverified, a new verification link has been dispatched.",
   
   // Validation / Auth Errors
   INVALID_CREDENTIALS: "Invalid email or password.",

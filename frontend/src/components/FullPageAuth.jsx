@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Eye,
@@ -8,6 +8,9 @@ import {
   X,
   Sparkles,
   Lock,
+  Mail,
+  RefreshCw,
+  Check,
 } from "lucide-react";
 import ClockWidget from "./ClockWidget";
 import SmoothInput from "./SmoothInput";
@@ -32,6 +35,16 @@ export default function FullPageAuth() {
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSubmitted, setForgotSubmitted] = useState(false);
+
+  // Email verification state
+  const [verifyModal, setVerifyModal] = useState({
+    isOpen: false,
+    status: "prompt", // 'prompt' | 'verifying' | 'success' | 'expired' | 'invalid' | 'already_verified'
+    email: "",
+    message: "",
+  });
+  const [resendEmailInput, setResendEmailInput] = useState("");
+  const [isResending, setIsResending] = useState(false);
 
   // References for smooth cursor & focus movement across inputs
   const nameInputRef = useRef(null);
@@ -70,6 +83,105 @@ export default function FullPageAuth() {
   };
 
   const API_BASE_URL = "http://localhost:5000/api/v1/auth";
+
+  // Check for email verification token in URL params on page load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("verifyToken") || params.get("token");
+    if (token) {
+      // Immediately remove token from browser URL bar to mitigate token leakage
+      window.history.replaceState({}, document.title, window.location.pathname);
+      handleTokenVerification(token);
+    }
+  }, []);
+
+  const handleTokenVerification = async (token) => {
+    setVerifyModal({
+      isOpen: true,
+      status: "verifying",
+      email: "",
+      message: "Verifying your security token...",
+    });
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/verify-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const errorMsg = data.message || "Verification failed.";
+        const isExpired = errorMsg.toLowerCase().includes("expired");
+        setVerifyModal({
+          isOpen: true,
+          status: isExpired ? "expired" : "invalid",
+          email: "",
+          message: errorMsg,
+        });
+        return;
+      }
+
+      if (data.data?.alreadyVerified) {
+        setVerifyModal({
+          isOpen: true,
+          status: "already_verified",
+          email: "",
+          message: data.message || "Your email address is already verified.",
+        });
+      } else {
+        setVerifyModal({
+          isOpen: true,
+          status: "success",
+          email: data.data?.user?.email || "",
+          message: data.message || "Email verified successfully!",
+        });
+      }
+    } catch (err) {
+      setVerifyModal({
+        isOpen: true,
+        status: "invalid",
+        email: "",
+        message: err.message || "Network error while connecting to verification service.",
+      });
+    }
+  };
+
+  const handleResendVerification = async (targetEmail) => {
+    const emailToUse = (targetEmail || verifyModal.email || resendEmailInput || formData.email || "").trim();
+    if (!emailToUse) {
+      triggerToast("error", "Please provide a valid email address.");
+      return;
+    }
+
+    setIsResending(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailToUse }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to resend verification email.");
+      }
+
+      triggerToast("success", data.message || "Verification email dispatched!");
+      setVerifyModal({
+        isOpen: true,
+        status: "prompt",
+        email: emailToUse,
+        message: data.message,
+      });
+    } catch (err) {
+      triggerToast("error", err.message || "Resend request failed.");
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -136,9 +248,15 @@ export default function FullPageAuth() {
       }
 
       if (mode === "signup") {
+        setVerifyModal({
+          isOpen: true,
+          status: "prompt",
+          email: formData.email.trim(),
+          message: data.message || "Verification link sent! Please check your inbox.",
+        });
         triggerToast(
           "success",
-          `Welcome to ADOS, ${data.data?.user?.name || formData.name}! Account created successfully.`
+          `Account created! Please check your inbox at ${formData.email.trim()}`
         );
       } else {
         triggerToast(
@@ -641,6 +759,234 @@ export default function FullPageAuth() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= EMAIL VERIFICATION MODAL / BANNER ================= */}
+      <AnimatePresence>
+        {verifyModal.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (verifyModal.status !== "verifying") {
+                  setVerifyModal((prev) => ({ ...prev, isOpen: false }));
+                }
+              }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 15 }}
+              transition={{ type: "spring", stiffness: 350, damping: 25 }}
+              className="relative bg-white rounded-3xl max-w-md w-full p-7 sm:p-8 shadow-2xl border border-slate-100 z-10 text-center space-y-5"
+            >
+              {/* Close Button */}
+              {verifyModal.status !== "verifying" && (
+                <button
+                  type="button"
+                  onClick={() => setVerifyModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+
+              {/* Status: PROMPT (After Signup or Resend) */}
+              {verifyModal.status === "prompt" && (
+                <div className="space-y-4">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-[#f1f9e6] flex items-center justify-center text-[#548421]">
+                    <Mail className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-xl font-bold text-[#1a2b20]">Check your inbox</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                    We sent a verification link to{" "}
+                    <strong className="text-slate-900">{verifyModal.email || formData.email}</strong>.
+                    Please click the link in the email to activate your account.
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    The link will expire in 30 minutes. Be sure to check your spam/junk folder.
+                  </p>
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
+                    <button
+                      type="button"
+                      disabled={isResending}
+                      onClick={() => handleResendVerification(verifyModal.email)}
+                      className="px-5 py-2.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                    >
+                      {isResending ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Resending...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Resend email</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerifyModal((prev) => ({ ...prev, isOpen: false }));
+                        setMode("login");
+                      }}
+                      className="px-6 py-2.5 rounded-full bg-[#9ed84f] hover:bg-[#8ecb3e] text-[#1c3a0e] font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                    >
+                      Go to Sign in
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Status: VERIFYING */}
+              {verifyModal.status === "verifying" && (
+                <div className="space-y-4 py-4">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-[#f1f9e6] flex items-center justify-center">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                      className="w-6 h-6 border-3 border-[#548421] border-t-transparent rounded-full"
+                    />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#1a2b20]">Verifying your email...</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Validating your cryptographic token with the ADOS security service.
+                  </p>
+                </div>
+              )}
+
+              {/* Status: SUCCESS */}
+              {verifyModal.status === "success" && (
+                <div className="space-y-4">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <CheckCircle2 className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Email verified!</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                    Your email address has been successfully verified. Your ADOS workspace account is now fully active.
+                  </p>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerifyModal((prev) => ({ ...prev, isOpen: false }));
+                        setMode("login");
+                      }}
+                      className="w-full py-3 rounded-full bg-[#9ed84f] hover:bg-[#8ecb3e] text-[#1c3a0e] font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                    >
+                      Sign In Now
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Status: ALREADY VERIFIED */}
+              {verifyModal.status === "already_verified" && (
+                <div className="space-y-4">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-[#f1f9e6] text-[#548421] flex items-center justify-center">
+                    <Check className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Already verified</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                    Your email address was already verified previously. You can sign in to your workspace.
+                  </p>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerifyModal((prev) => ({ ...prev, isOpen: false }));
+                        setMode("login");
+                      }}
+                      className="w-full py-3 rounded-full bg-[#9ed84f] hover:bg-[#8ecb3e] text-[#1c3a0e] font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                    >
+                      Go to Sign In
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Status: EXPIRED */}
+              {verifyModal.status === "expired" && (
+                <div className="space-y-4">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <AlertCircle className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Link expired</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                    This verification link has expired. Verification links are valid for 30 minutes for security.
+                  </p>
+                  <div className="pt-2 space-y-2">
+                    <SmoothInput
+                      type="email"
+                      value={resendEmailInput}
+                      onChange={(e) => setResendEmailInput(e.target.value)}
+                      placeholder="Enter your email to resend"
+                      autoComplete="email"
+                      onEnterNext={() => handleResendVerification(resendEmailInput)}
+                    />
+                    <button
+                      type="button"
+                      disabled={isResending}
+                      onClick={() => handleResendVerification(resendEmailInput)}
+                      className="w-full py-2.5 rounded-full bg-[#9ed84f] hover:bg-[#8ecb3e] text-[#1c3a0e] font-bold text-xs shadow-sm transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-1.5"
+                    >
+                      {isResending ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Sending new link...</span>
+                        </>
+                      ) : (
+                        <span>Request new verification link</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Status: INVALID */}
+              {verifyModal.status === "invalid" && (
+                <div className="space-y-4">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-rose-50 text-rose-600 flex items-center justify-center">
+                    <AlertCircle className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Invalid link</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                    This verification link is invalid, malformed, or has already been used.
+                  </p>
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerifyModal((prev) => ({
+                          ...prev,
+                          status: "expired",
+                        }));
+                      }}
+                      className="px-5 py-2.5 rounded-full border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
+                      Resend link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerifyModal((prev) => ({ ...prev, isOpen: false }));
+                        setMode("login");
+                      }}
+                      className="px-6 py-2.5 rounded-full bg-[#9ed84f] hover:bg-[#8ecb3e] text-[#1c3a0e] font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                    >
+                      Back to Sign In
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         )}

@@ -3,6 +3,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { TokenUtil } from "../utils/token.util.js";
 import { ResponseMessages } from "../constants/responseMessages.js";
 import { SecurityLogger } from "../utils/securityLogger.util.js";
+import { env } from "../config/env.js";
+import { EmailService } from "./email.service.js";
 
 /**
  * Enterprise Authentication Business Logic Service
@@ -40,9 +42,27 @@ export const AuthService = {
     const accessToken = TokenUtil.generateAccessToken(tokenPayload);
     const refreshToken = TokenUtil.generateRefreshToken({ id: user._id.toString() });
 
-    // Store refresh token hash in DB for revocation support
+    // Generate cryptographically secure email verification token
+    const { rawToken, hashedToken } = TokenUtil.generateCryptoToken();
+    const expiresMs = env.EMAIL_VERIFICATION_EXPIRES_MINUTES * 60 * 1000;
+
+    user.emailVerified = false;
+    user.isVerified = false;
+    user.emailVerificationTokenHash = hashedToken;
+    user.emailVerificationExpires = new Date(Date.now() + expiresMs);
     user.refreshToken = TokenUtil.hashToken(refreshToken);
+
     await user.save({ validateBeforeSave: false });
+
+    // Send verification email asynchronously
+    const verificationUrl = `${env.APP_URL}/?verifyToken=${rawToken}`;
+    EmailService.sendVerificationEmail({
+      to: user.email,
+      name: user.name,
+      verificationUrl,
+    }).catch((err) => {
+      console.error("❌ Failed to send initial verification email:", err.message);
+    });
 
     SecurityLogger.log("AUTH_REGISTER_SUCCESS", {
       req: context.req,
@@ -55,6 +75,7 @@ export const AuthService = {
       user: user.toJSON(),
       accessToken,
       refreshToken,
+      requiresEmailVerification: true,
     };
   },
 
@@ -304,5 +325,134 @@ export const AuthService = {
       throw ApiError.notFound(ResponseMessages.USER_NOT_FOUND);
     }
     return user.toJSON();
+  },
+
+  /**
+   * Verify email address using cryptographically secure single-use token
+   * @param {string} token
+   * @param {Object} [context] - { req }
+   * @returns {Promise<{ message: string, user?: Object, alreadyVerified?: boolean }>}
+   */
+  async verifyEmail(token, context = {}) {
+    if (!token || typeof token !== "string") {
+      throw ApiError.badRequest("Verification token is required.");
+    }
+
+    const hashedToken = TokenUtil.hashToken(token);
+
+    const user = await User.findOne({
+      emailVerificationTokenHash: hashedToken,
+    }).select("+emailVerificationTokenHash +emailVerificationExpires");
+
+    if (!user) {
+      SecurityLogger.log("AUTH_EMAIL_VERIFICATION_INVALID_TOKEN", {
+        req: context.req,
+        outcome: "FAILURE",
+      });
+      throw ApiError.badRequest(ResponseMessages.VERIFICATION_TOKEN_INVALID_OR_EXPIRED);
+    }
+
+    // Verify token expiration
+    if (!user.emailVerificationExpires || user.emailVerificationExpires.getTime() < Date.now()) {
+      SecurityLogger.log("AUTH_EMAIL_VERIFICATION_EXPIRED_TOKEN", {
+        req: context.req,
+        userId: user._id,
+        outcome: "FAILURE",
+      });
+      throw ApiError.badRequest(ResponseMessages.VERIFICATION_TOKEN_INVALID_OR_EXPIRED);
+    }
+
+    // Check if account is already verified
+    if (user.emailVerified && user.isVerified) {
+      user.emailVerificationTokenHash = undefined;
+      user.emailVerificationExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      return {
+        message: ResponseMessages.EMAIL_ALREADY_VERIFIED,
+        alreadyVerified: true,
+      };
+    }
+
+    // Mark verified and permanently invalidate single-use token
+    user.emailVerified = true;
+    user.isVerified = true;
+    user.emailVerificationTokenHash = undefined;
+    user.emailVerificationExpires = undefined;
+
+    await user.save({ validateBeforeSave: false });
+
+    SecurityLogger.log("AUTH_EMAIL_VERIFICATION_SUCCESS", {
+      req: context.req,
+      userId: user._id,
+      email: user.email,
+      outcome: "SUCCESS",
+    });
+
+    return {
+      message: ResponseMessages.EMAIL_VERIFIED_SUCCESS,
+      user: user.toJSON(),
+    };
+  },
+
+  /**
+   * Resend verification email with rate limiting and account enumeration protection
+   * @param {string} email
+   * @param {Object} [context] - { req }
+   * @returns {Promise<{ message: string }>}
+   */
+  async resendVerification(email, context = {}) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      "+emailVerificationTokenHash +emailVerificationExpires"
+    );
+
+    // Enumeration protection: always return safe generic response
+    if (!user) {
+      SecurityLogger.log("AUTH_RESEND_VERIFICATION_NONEXISTENT", {
+        req: context.req,
+        email: normalizedEmail,
+        outcome: "FAILURE",
+      });
+      return { message: ResponseMessages.RESEND_VERIFICATION_DISPATCHED };
+    }
+
+    // If already verified, return generic response to avoid leaking verification status
+    if (user.emailVerified && user.isVerified) {
+      SecurityLogger.log("AUTH_RESEND_VERIFICATION_ALREADY_VERIFIED", {
+        req: context.req,
+        userId: user._id,
+        email: normalizedEmail,
+        outcome: "FAILURE",
+      });
+      return { message: ResponseMessages.RESEND_VERIFICATION_DISPATCHED };
+    }
+
+    // Generate new secure verification token and reset expiration
+    const { rawToken, hashedToken } = TokenUtil.generateCryptoToken();
+    const expiresMs = env.EMAIL_VERIFICATION_EXPIRES_MINUTES * 60 * 1000;
+
+    user.emailVerificationTokenHash = hashedToken;
+    user.emailVerificationExpires = new Date(Date.now() + expiresMs);
+    await user.save({ validateBeforeSave: false });
+
+    // Dispatch verification email
+    const verificationUrl = `${env.APP_URL}/?verifyToken=${rawToken}`;
+    EmailService.sendVerificationEmail({
+      to: user.email,
+      name: user.name,
+      verificationUrl,
+    }).catch((err) => {
+      console.error("❌ Failed to send verification email on resend:", err.message);
+    });
+
+    SecurityLogger.log("AUTH_RESEND_VERIFICATION_SUCCESS", {
+      req: context.req,
+      userId: user._id,
+      email: user.email,
+      outcome: "SUCCESS",
+    });
+
+    return { message: ResponseMessages.RESEND_VERIFICATION_DISPATCHED };
   },
 };

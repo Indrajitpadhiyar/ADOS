@@ -1,4 +1,5 @@
 # ADOS — Intelligent Operations & Autonomous Platform
+
 <p align="center">
   <img src="frontend/public/ados2.png" alt="ADOS Logo" width="220" />
 </p>
@@ -30,6 +31,7 @@ Built with a **Clean Layered Architecture (Controller-Service-Repository)** on t
 ## 🚀 Key Features
 
 ### 🔐 Enterprise Security & Authentication (Backend)
+
 - **Zero-Trust Token Strategy**: Short-lived JWT Access Tokens (15m) paired with long-lived Refresh Tokens (7d).
 - **OWASP Secure Cookies**: Tokens stored in `HttpOnly`, `SameSite=Strict`, `Secure` cookies mitigating XSS and CSRF token theft.
 - **Refresh Token Rotation**: Automatic token family rotation with real-time detection of compromised/replayed sessions.
@@ -44,6 +46,7 @@ Built with a **Clean Layered Architecture (Controller-Service-Repository)** on t
 - **Graceful Shutdown**: Production-ready process signal interception (`SIGTERM`, `SIGINT`, `uncaughtException`).
 
 ### 🎨 Modern UI & Interaction (Frontend)
+
 - **Smooth Caret Movement**: Custom input component (`SmoothInput`) utilizing canvas text-measuring and fluid CSS physics transitions (`cubic-bezier(0.16, 1, 0.3, 1)`).
 - **Password & Confirm Password**: Client-side regex verification, real-time match indicators, and visibility toggles.
 - **Keyboard Navigation**: Fluid `Enter` key auto-progression through inputs to submission.
@@ -157,14 +160,14 @@ ADOS/
 
 ## 🛠️ Technology Stack
 
-| Layer | Technologies |
-| :--- | :--- |
-| **Frontend Core** | React 19, JavaScript (ESModules), HTML5 |
-| **Styling & Motion** | Tailwind CSS v4, Framer Motion, Lucide Icons |
-| **Backend Runtime** | Node.js (v20+ Recommended), Express v5.2 |
-| **Database** | MongoDB Atlas, Mongoose v9 |
-| **Security & Auth** | JSON Web Tokens (`jsonwebtoken`), `bcryptjs`, `helmet`, `cors`, `cookie-parser`, `express-rate-limit`, `zod` |
-| **Build & Tooling** | Vite v8, npm |
+| Layer                | Technologies                                                                                                 |
+| :------------------- | :----------------------------------------------------------------------------------------------------------- |
+| **Frontend Core**    | React 19, JavaScript (ESModules), HTML5                                                                      |
+| **Styling & Motion** | Tailwind CSS v4, Framer Motion, Lucide Icons                                                                 |
+| **Backend Runtime**  | Node.js (v20+ Recommended), Express v5.2                                                                     |
+| **Database**         | MongoDB Atlas, Mongoose v9                                                                                   |
+| **Security & Auth**  | JSON Web Tokens (`jsonwebtoken`), `bcryptjs`, `helmet`, `cors`, `cookie-parser`, `express-rate-limit`, `zod` |
+| **Build & Tooling**  | Vite v8, npm                                                                                                 |
 
 ---
 
@@ -198,6 +201,7 @@ COOKIE_SECRET=your_cookie_encryption_secret_here
 ## 🚦 Getting Started
 
 ### Prerequisites
+
 - **Node.js** (v18.0.0 or higher)
 - **npm** (v9.0.0 or higher)
 - Active **MongoDB** instance (Local or MongoDB Atlas cluster)
@@ -221,17 +225,21 @@ npm install
 ### 2. Run the Development Servers
 
 #### Terminal 1 — Backend API
+
 ```bash
 cd backend
 npm run dev
 ```
+
 > The API server will start on `http://localhost:5000` and automatically establish a pooled connection to MongoDB.
 
 #### Terminal 2 — Frontend Client
+
 ```bash
 cd frontend
 npm run dev
 ```
+
 > The Vite client will launch on `http://localhost:5173`.
 
 ---
@@ -240,21 +248,24 @@ npm run dev
 
 ### Health & Telemetry
 
-| Method | Endpoint | Access | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/health` | Public | System status, database health, memory, and uptime |
+| Method | Endpoint  | Access | Description                                        |
+| :----- | :-------- | :----- | :------------------------------------------------- |
+| `GET`  | `/health` | Public | System status, database health, memory, and uptime |
 
 ### Authentication (`/auth`)
 
-| Method | Endpoint | Access | Rate Limit | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/auth/register` | Public | 15 req / 15m | Register new account with name, email, password |
-| `POST` | `/auth/login` | Public | 15 req / 15m | Authenticate user, set secure cookies & JWTs |
-| `POST` | `/auth/refresh` | Public | 30 req / 15m | Rotate access & refresh tokens |
-| `POST` | `/auth/forgot-password`| Public | 5 req / 15m | Request single-use password recovery link |
-| `POST` | `/auth/reset-password` | Public | 5 req / 15m | Reset password using valid cryptographic token |
-| `POST` | `/auth/logout` | Protected | — | Clear cookies & invalidate server refresh token |
-| `GET` | `/auth/me` | Protected | — | Retrieve current authenticated user profile |
+| Method | Endpoint                 | Access    | Rate Limit   | Description                                     |
+| :----- | :----------------------- | :-------- | :----------- | :---------------------------------------------- |
+| `POST` | `/auth/register`         | Public    | 15 req / 15m | Register new account & dispatch verification    |
+| `POST` | `/auth/login`            | Public    | 15 req / 15m | Authenticate user, set secure cookies & JWTs    |
+| `POST` | `/auth/verify-email`     | Public    | 15 req / 15m | Verify account via single-use cryptographic token |
+| `GET`  | `/auth/verify-email`     | Public    | 15 req / 15m | Verify account via direct email link click      |
+| `POST` | `/auth/resend-verification`| Public  | 3 req / 15m  | Rate-limited resend of verification email       |
+| `POST` | `/auth/refresh`          | Public    | 30 req / 15m | Rotate access & refresh tokens                  |
+| `POST` | `/auth/forgot-password`  | Public    | 5 req / 15m  | Request single-use password recovery link       |
+| `POST` | `/auth/reset-password`   | Public    | 5 req / 15m  | Reset password using valid cryptographic token  |
+| `POST` | `/auth/logout`           | Protected | —            | Clear cookies & invalidate server refresh token |
+| `GET`  | `/auth/me`               | Protected | —            | Retrieve current authenticated user profile     |
 
 ---
 
@@ -298,9 +309,3 @@ NODE_ENV=production npm start
 - **OWASP Top 10 Aligned**: Protected against Broken Access Control, Injection, Cryptographic Failures, and Security Misconfiguration.
 - **CORS Restricted**: Credentials allowed exclusively for configured origin (`http://localhost:5173`).
 - **No Token Leakage**: Sensitive credentials, reset tokens, and passwords are never logged or exposed in API envelopes.
-
----
-
-## 📄 License
-
-This project is licensed under the ISC License.

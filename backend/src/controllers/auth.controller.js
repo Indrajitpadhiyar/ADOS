@@ -31,7 +31,7 @@ export const AuthController = {
    */
   register: asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
-    const { user, accessToken, refreshToken } = await AuthService.register(
+    const { user, accessToken, refreshToken, requiresEmailVerification } = await AuthService.register(
       { name, email, password },
       { req }
     );
@@ -40,10 +40,11 @@ export const AuthController = {
     res.cookie("accessToken", accessToken, getCookieOptions(ACCESS_COOKIE_MAX_AGE));
     res.cookie("refreshToken", refreshToken, getCookieOptions(REFRESH_COOKIE_MAX_AGE));
 
-    return ApiResponse.created(res, ResponseMessages.REGISTER_SUCCESS, {
+    return ApiResponse.created(res, ResponseMessages.VERIFICATION_EMAIL_SENT, {
       user,
       accessToken,
       refreshToken,
+      requiresEmailVerification,
     });
   }),
 
@@ -125,6 +126,28 @@ export const AuthController = {
   resetPassword: asyncHandler(async (req, res) => {
     const { token, password } = req.body;
     const result = await AuthService.resetPassword({ token, password }, { req });
+    return ApiResponse.success(res, result.message, null);
+  }),
+
+  /**
+   * POST /api/v1/auth/verify-email
+   * GET  /api/v1/auth/verify-email?token=...
+   */
+  verifyEmail: asyncHandler(async (req, res) => {
+    const token = req.body?.token || req.query?.token;
+    const result = await AuthService.verifyEmail(token, { req });
+    return ApiResponse.success(res, result.message, {
+      user: result.user,
+      alreadyVerified: result.alreadyVerified || false,
+    });
+  }),
+
+  /**
+   * POST /api/v1/auth/resend-verification
+   */
+  resendVerification: asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    const result = await AuthService.resendVerification(email, { req });
     return ApiResponse.success(res, result.message, null);
   }),
 };

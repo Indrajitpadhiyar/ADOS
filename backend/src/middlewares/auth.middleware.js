@@ -104,3 +104,28 @@ export const authorizeRoles = (...roles) => {
     next();
   };
 };
+
+/**
+ * Email Verification Guard
+ * Enforces that the authenticated user has verified their email address before accessing sensitive operations.
+ */
+export const requireEmailVerified = (req, res, next) => {
+  if (!req.user) {
+    throw new ApiError(HttpStatus.UNAUTHORIZED, ResponseMessages.UNAUTHORIZED);
+  }
+
+  if (!req.user.emailVerified && !req.user.isVerified) {
+    SecurityLogger.log("AUTH_EMAIL_VERIFICATION_REQUIRED", {
+      req,
+      userId: req.user._id,
+      email: req.user.email,
+      outcome: "FAILURE",
+    });
+    throw new ApiError(
+      HttpStatus.FORBIDDEN,
+      "Email verification required. Please verify your email address to continue."
+    );
+  }
+
+  next();
+};

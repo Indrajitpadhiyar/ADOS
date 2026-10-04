@@ -15,6 +15,10 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16, "JWT_REFRESH_SECRET must be at least 16 characters long"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
   COOKIE_SECRET: z.string().min(16, "COOKIE_SECRET must be at least 16 characters long"),
+  RESEND_API_KEY: z.string().default(process.env.RESENDER_API_KEY || ""),
+  EMAIL_FROM: z.string().default(process.env.EMAIL_FROM || "ADOS <onboarding@resend.dev>"),
+  APP_URL: z.string().url("APP_URL must be a valid URL").default("http://localhost:5173"),
+  EMAIL_VERIFICATION_EXPIRES_MINUTES: z.coerce.number().default(30),
 });
 
 const parseEnv = () => {

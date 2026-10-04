@@ -47,6 +47,26 @@ export const tokenRefreshLimiter = createLimiter(
 );
 
 /**
+ * Strict Email Verification Resend Limiter
+ * Mitigates email spamming, token generation abuse, and rate limits resend requests
+ */
+export const resendVerificationLimiter = createLimiter(
+  15 * 60 * 1000,
+  3, // 3 requests per 15 minutes per IP
+  "Too many verification resend attempts. Please check your inbox or wait 15 minutes."
+);
+
+/**
+ * Email Verification Endpoint Rate Limiter
+ * Guards against automated verification token guessing and timing attacks
+ */
+export const emailVerificationLimiter = createLimiter(
+  15 * 60 * 1000,
+  15, // 15 verification attempts per 15 minutes
+  "Too many verification attempts. Please try again later."
+);
+
+/**
  * General API Rate Limiter
  */
 export const apiLimiter = createLimiter(
