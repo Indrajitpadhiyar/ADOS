@@ -134,7 +134,7 @@ export const EmailService = {
           service: "gmail",
           auth: {
             user: env.EMAIL_USER,
-            pass: env.EMAIL_PASS,
+            pass: env.EMAIL_PASS.replace(/\s+/g, ""),
           },
         });
 
