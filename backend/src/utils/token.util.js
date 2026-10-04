@@ -69,11 +69,21 @@ export const TokenUtil = {
   },
 
   /**
+   * Generates a cryptographically secure 6-digit numeric verification code
+   * @returns {{ rawCode: string, hashedCode: string }}
+   */
+  generateVerificationCode() {
+    const rawCode = crypto.randomInt(100000, 1000000).toString();
+    const hashedCode = this.hashToken(rawCode);
+    return { rawCode, hashedCode };
+  },
+
+  /**
    * Hashes a raw token with SHA256
    * @param {string} rawToken
    * @returns {string}
    */
   hashToken(rawToken) {
-    return crypto.createHash("sha256").update(rawToken).digest("hex");
+    return crypto.createHash("sha256").update(String(rawToken)).digest("hex");
   },
 };

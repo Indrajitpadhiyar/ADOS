@@ -8,10 +8,10 @@ import { SecurityLogger } from "../utils/securityLogger.util.js";
 export const EmailService = {
   /**
    * Generates responsive HTML email template for verification
-   * @param {Object} params - { name, verificationUrl, expiresMinutes }
+   * @param {Object} params - { name, verificationUrl, verificationCode, expiresMinutes }
    * @returns {string} HTML string
    */
-  getVerificationEmailHtml({ name, verificationUrl, expiresMinutes = 30 }) {
+  getVerificationEmailHtml({ name, verificationUrl, verificationCode, expiresMinutes = 30 }) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,35 +40,48 @@ export const EmailService = {
                 Hi <strong>${name || "there"}</strong>,
               </p>
               <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #425244;">
-                Thank you for creating an account with ADOS. To complete your registration and activate your workspace, please verify your email address.
+                Thank you for creating an account with ADOS. Enter the 6-digit verification code below in your browser, or click the verification button.
               </p>
               
+              <!-- 6-Digit Verification Code Box -->
+              <div style="background-color: #f3faec; border: 2px dashed #9ed84f; border-radius: 16px; padding: 24px 20px; text-align: center; margin: 24px 0;">
+                <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: #446e27; font-weight: 700; display: block; margin-bottom: 8px;">
+                  Your Verification Code
+                </span>
+                <span style="font-size: 36px; font-weight: 800; letter-spacing: 10px; color: #172c1c; font-family: 'Courier New', Courier, monospace; display: inline-block;">
+                  ${verificationCode || "------"}
+                </span>
+                <span style="display: block; font-size: 12px; color: #6f8072; margin-top: 8px;">
+                  Valid for ${expiresMinutes} minutes
+                </span>
+              </div>
+
               <!-- Call to Action Button -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0 20px;">
                 <tr>
                   <td align="center">
                     <a href="${verificationUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #9ed84f; color: #16330e; text-decoration: none; font-size: 15px; font-weight: 700; padding: 14px 34px; border-radius: 9999px; box-shadow: 0 4px 12px rgba(158, 216, 79, 0.35);">
-                      Verify My Email
+                      Verify via Direct Link
                     </a>
                   </td>
                 </tr>
               </table>
 
-              <p style="margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: #6d7d70;">
-                ⏰ <strong>Security Notice:</strong> This verification link will expire in <strong>${expiresMinutes} minutes</strong> and can only be used once.
+              <p style="margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: #6d7d70; text-align: center;">
+                ⏰ This code and link will expire in <strong>${expiresMinutes} minutes</strong> and can only be used once.
               </p>
 
-              <p style="margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: #6d7d70;">
-                If the button above does not work, copy and paste this URL into your browser:
+              <hr style="border: 0; border-top: 1px solid #edf3e6; margin: 26px 0 20px;">
+
+              <p style="margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: #6d7d70;">
+                Direct link fallback:
               </p>
-              <p style="margin: 0 0 24px; font-size: 12px; line-height: 1.4; word-break: break-all; color: #366023; background-color: #f1f8ea; padding: 12px; border-radius: 8px;">
+              <p style="margin: 0 0 20px; font-size: 11px; line-height: 1.4; word-break: break-all; color: #366023; background-color: #f1f8ea; padding: 10px 12px; border-radius: 8px;">
                 ${verificationUrl}
               </p>
 
-              <hr style="border: 0; border-top: 1px solid #edf3e6; margin: 30px 0 20px;">
-
               <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #879789;">
-                If you did not sign up for an ADOS account, please disregard this email or contact support. No further action is required.
+                If you did not sign up for an ADOS account, please disregard this email.
               </p>
             </td>
           </tr>
@@ -91,15 +104,21 @@ export const EmailService = {
 
   /**
    * Dispatches verification email
-   * @param {Object} options - { to, name, verificationUrl }
+   * @param {Object} options - { to, name, verificationUrl, verificationCode }
    * @returns {Promise<{ success: boolean, messageId?: string, error?: string }>}
    */
-  async sendVerificationEmail({ to, name, verificationUrl }) {
+  async sendVerificationEmail({ to, name, verificationUrl, verificationCode }) {
     const apiKey = env.RESEND_API_KEY;
+
+    // Developer convenience: Always log code and link in terminal during development
+    console.log(`\n📬 =====================================================`);
+    console.log(`✉️ [EMAIL DISPATCH] Recipient: ${to}`);
+    console.log(`🔑 Verification Code : ${verificationCode}`);
+    console.log(`🔗 Verification Link : ${verificationUrl}`);
+    console.log(`=====================================================\n`);
 
     if (!apiKey) {
       console.warn("⚠️ [EmailService] RESEND_API_KEY is not configured. Simulating verification email dispatch.");
-      console.log(`✉️ [EmailService Simulation] Verification Link for ${to}: ${verificationUrl}`);
       return { success: true, simulated: true };
     }
 
@@ -113,13 +132,14 @@ export const EmailService = {
         body: JSON.stringify({
           from: env.EMAIL_FROM,
           to: [to],
-          subject: "Verify your ADOS account",
+          subject: `${verificationCode} is your ADOS verification code`,
           html: this.getVerificationEmailHtml({
             name,
             verificationUrl,
+            verificationCode,
             expiresMinutes: env.EMAIL_VERIFICATION_EXPIRES_MINUTES,
           }),
-          text: `Hi ${name || "there"},\n\nPlease verify your ADOS email address by visiting this link:\n${verificationUrl}\n\nThis link will expire in ${env.EMAIL_VERIFICATION_EXPIRES_MINUTES} minutes.\n\nIf you did not create this account, please ignore this email.`,
+          text: `Hi ${name || "there"},\n\nYour ADOS 6-digit verification code is: ${verificationCode}\n\nAlternatively, verify by clicking: ${verificationUrl}\n\nThis code will expire in ${env.EMAIL_VERIFICATION_EXPIRES_MINUTES} minutes.`,
         }),
       });
 
@@ -127,6 +147,12 @@ export const EmailService = {
 
       if (!response.ok) {
         console.error("❌ [EmailService] Resend API Error:", responseData);
+        if (responseData.message && responseData.message.includes("domain is not verified")) {
+          console.warn(
+            `\n⚠️ [EmailService Notice] Resend's free tier only delivers to your registered account owner email (${env.EMAIL_FROM.includes("gmail") ? env.EMAIL_FROM : "your Resend email"}).\nUse the verification code shown in the console above: ${verificationCode}\nOr add your custom domain on https://resend.com/domains to send to any address.\n`
+          );
+        }
+
         SecurityLogger.log("EMAIL_DISPATCH_FAILED", {
           details: responseData.message || "Failed to dispatch email via Resend",
           outcome: "FAILURE",

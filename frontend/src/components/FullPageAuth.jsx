@@ -43,6 +43,8 @@ export default function FullPageAuth() {
     email: "",
     message: "",
   });
+  const [verificationCode, setVerificationCode] = useState("");
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
   const [resendEmailInput, setResendEmailInput] = useState("");
   const [isResending, setIsResending] = useState(false);
 
@@ -146,6 +148,63 @@ export default function FullPageAuth() {
         email: "",
         message: err.message || "Network error while connecting to verification service.",
       });
+    }
+  };
+
+  const handleCodeVerification = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!verificationCode || verificationCode.trim().length !== 6) {
+      triggerToast("error", "Please enter your 6-digit verification code.");
+      return;
+    }
+
+    const emailToVerify = (verifyModal.email || formData.email || "").trim();
+    if (!emailToVerify) {
+      triggerToast("error", "Please enter or confirm your email address.");
+      return;
+    }
+
+    setIsVerifyingCode(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/verify-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: verificationCode.trim(),
+          email: emailToVerify,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const errorMsg = data.message || "Invalid or expired verification code.";
+        const isExpired = errorMsg.toLowerCase().includes("expired");
+        setVerifyModal((prev) => ({
+          ...prev,
+          status: isExpired ? "expired" : "invalid",
+          message: errorMsg,
+        }));
+        return;
+      }
+
+      if (data.data?.alreadyVerified) {
+        setVerifyModal((prev) => ({
+          ...prev,
+          status: "already_verified",
+          message: data.message || "Your email address is already verified.",
+        }));
+      } else {
+        setVerifyModal((prev) => ({
+          ...prev,
+          status: "success",
+          message: data.message || "Email verified successfully!",
+        }));
+      }
+    } catch (err) {
+      triggerToast("error", err.message || "Verification request failed.");
+    } finally {
+      setIsVerifyingCode(false);
     }
   };
 
@@ -806,14 +865,58 @@ export default function FullPageAuth() {
                   </div>
                   <h3 className="text-xl font-bold text-[#1a2b20]">Check your inbox</h3>
                   <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-                    We sent a verification link to{" "}
+                    We sent a 6-digit verification code to{" "}
                     <strong className="text-slate-900">{verifyModal.email || formData.email}</strong>.
-                    Please click the link in the email to activate your account.
+                    Enter the code below to activate your account.
                   </p>
+
+                  {/* 6-Digit Code Input Section */}
+                  <form onSubmit={handleCodeVerification} className="space-y-3 pt-1">
+                    <div className="flex flex-col items-center gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        Enter 6-Digit Code
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={6}
+                        value={verificationCode}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                          setVerificationCode(val);
+                        }}
+                        placeholder="• • • • • •"
+                        className="w-full max-w-[240px] text-center font-mono text-2xl font-black tracking-[0.35em] py-2.5 px-3 rounded-2xl bg-slate-50 border-2 border-slate-200 focus:border-[#9ed84f] focus:bg-white focus:outline-none transition-all text-[#172c1c]"
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isVerifyingCode || verificationCode.length !== 6}
+                      className="w-full py-3 rounded-full bg-[#9ed84f] hover:bg-[#8ecb3e] active:bg-[#7ebd30] text-[#1c3a0e] font-bold text-xs shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isVerifyingCode ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Verifying code...</span>
+                        </>
+                      ) : (
+                        <span>Verify Code</span>
+                      )}
+                    </button>
+                  </form>
+
+                  <div className="flex items-center gap-2 my-2 text-[11px] text-slate-400">
+                    <span className="flex-1 h-px bg-slate-100" />
+                    <span>or click the email link</span>
+                    <span className="flex-1 h-px bg-slate-100" />
+                  </div>
+
                   <p className="text-[11px] text-slate-400">
-                    The link will expire in 30 minutes. Be sure to check your spam/junk folder.
+                    The code and link will expire in 30 minutes. Be sure to check your spam/junk folder.
                   </p>
-                  <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
+                  <div className="pt-1 flex flex-col sm:flex-row gap-2.5 justify-center">
                     <button
                       type="button"
                       disabled={isResending}
@@ -828,7 +931,7 @@ export default function FullPageAuth() {
                       ) : (
                         <>
                           <RefreshCw className="w-3.5 h-3.5" />
-                          <span>Resend email</span>
+                          <span>Resend code</span>
                         </>
                       )}
                     </button>
@@ -838,7 +941,7 @@ export default function FullPageAuth() {
                         setVerifyModal((prev) => ({ ...prev, isOpen: false }));
                         setMode("login");
                       }}
-                      className="px-6 py-2.5 rounded-full bg-[#9ed84f] hover:bg-[#8ecb3e] text-[#1c3a0e] font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                      className="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-xs transition-colors cursor-pointer"
                     >
                       Go to Sign in
                     </button>

@@ -42,13 +42,15 @@ export const AuthService = {
     const accessToken = TokenUtil.generateAccessToken(tokenPayload);
     const refreshToken = TokenUtil.generateRefreshToken({ id: user._id.toString() });
 
-    // Generate cryptographically secure email verification token
+    // Generate cryptographically secure email verification token & 6-digit code
     const { rawToken, hashedToken } = TokenUtil.generateCryptoToken();
+    const { rawCode, hashedCode } = TokenUtil.generateVerificationCode();
     const expiresMs = env.EMAIL_VERIFICATION_EXPIRES_MINUTES * 60 * 1000;
 
     user.emailVerified = false;
     user.isVerified = false;
     user.emailVerificationTokenHash = hashedToken;
+    user.emailVerificationCodeHash = hashedCode;
     user.emailVerificationExpires = new Date(Date.now() + expiresMs);
     user.refreshToken = TokenUtil.hashToken(refreshToken);
 
@@ -60,6 +62,7 @@ export const AuthService = {
       to: user.email,
       name: user.name,
       verificationUrl,
+      verificationCode: rawCode,
     }).catch((err) => {
       console.error("❌ Failed to send initial verification email:", err.message);
     });
@@ -328,33 +331,43 @@ export const AuthService = {
   },
 
   /**
-   * Verify email address using cryptographically secure single-use token
-   * @param {string} token
+   * Verify email address using cryptographically secure single-use token or 6-digit code
+   * @param {Object} params - { token, code, email }
    * @param {Object} [context] - { req }
    * @returns {Promise<{ message: string, user?: Object, alreadyVerified?: boolean }>}
    */
-  async verifyEmail(token, context = {}) {
-    if (!token || typeof token !== "string") {
-      throw ApiError.badRequest("Verification token is required.");
+  async verifyEmail({ token, code, email } = {}, context = {}) {
+    let user;
+
+    if (code && email) {
+      const normalizedEmail = email.toLowerCase().trim();
+      const hashedCode = TokenUtil.hashToken(code.trim());
+
+      user = await User.findOne({
+        email: normalizedEmail,
+        emailVerificationCodeHash: hashedCode,
+      }).select("+emailVerificationTokenHash +emailVerificationCodeHash +emailVerificationExpires");
+    } else if (token && typeof token === "string") {
+      const hashedToken = TokenUtil.hashToken(token.trim());
+
+      user = await User.findOne({
+        emailVerificationTokenHash: hashedToken,
+      }).select("+emailVerificationTokenHash +emailVerificationCodeHash +emailVerificationExpires");
+    } else {
+      throw ApiError.badRequest("Verification token or 6-digit code with email is required.");
     }
 
-    const hashedToken = TokenUtil.hashToken(token);
-
-    const user = await User.findOne({
-      emailVerificationTokenHash: hashedToken,
-    }).select("+emailVerificationTokenHash +emailVerificationExpires");
-
     if (!user) {
-      SecurityLogger.log("AUTH_EMAIL_VERIFICATION_INVALID_TOKEN", {
+      SecurityLogger.log("AUTH_EMAIL_VERIFICATION_INVALID_CREDENTIALS", {
         req: context.req,
         outcome: "FAILURE",
       });
       throw ApiError.badRequest(ResponseMessages.VERIFICATION_TOKEN_INVALID_OR_EXPIRED);
     }
 
-    // Verify token expiration
+    // Verify expiration
     if (!user.emailVerificationExpires || user.emailVerificationExpires.getTime() < Date.now()) {
-      SecurityLogger.log("AUTH_EMAIL_VERIFICATION_EXPIRED_TOKEN", {
+      SecurityLogger.log("AUTH_EMAIL_VERIFICATION_EXPIRED", {
         req: context.req,
         userId: user._id,
         outcome: "FAILURE",
@@ -365,6 +378,7 @@ export const AuthService = {
     // Check if account is already verified
     if (user.emailVerified && user.isVerified) {
       user.emailVerificationTokenHash = undefined;
+      user.emailVerificationCodeHash = undefined;
       user.emailVerificationExpires = undefined;
       await user.save({ validateBeforeSave: false });
 
@@ -374,10 +388,11 @@ export const AuthService = {
       };
     }
 
-    // Mark verified and permanently invalidate single-use token
+    // Mark verified and permanently invalidate single-use token and code
     user.emailVerified = true;
     user.isVerified = true;
     user.emailVerificationTokenHash = undefined;
+    user.emailVerificationCodeHash = undefined;
     user.emailVerificationExpires = undefined;
 
     await user.save({ validateBeforeSave: false });
@@ -428,11 +443,13 @@ export const AuthService = {
       return { message: ResponseMessages.RESEND_VERIFICATION_DISPATCHED };
     }
 
-    // Generate new secure verification token and reset expiration
+    // Generate new secure verification token and 6-digit code
     const { rawToken, hashedToken } = TokenUtil.generateCryptoToken();
+    const { rawCode, hashedCode } = TokenUtil.generateVerificationCode();
     const expiresMs = env.EMAIL_VERIFICATION_EXPIRES_MINUTES * 60 * 1000;
 
     user.emailVerificationTokenHash = hashedToken;
+    user.emailVerificationCodeHash = hashedCode;
     user.emailVerificationExpires = new Date(Date.now() + expiresMs);
     await user.save({ validateBeforeSave: false });
 
@@ -442,6 +459,7 @@ export const AuthService = {
       to: user.email,
       name: user.name,
       verificationUrl,
+      verificationCode: rawCode,
     }).catch((err) => {
       console.error("❌ Failed to send verification email on resend:", err.message);
     });

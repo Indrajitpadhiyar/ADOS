@@ -73,9 +73,14 @@ export const resetPasswordSchema = z
 
 export const verifyEmailSchema = z
   .object({
-    token: z.string({ required_error: "Verification token is required" }).min(1, "Verification token is required"),
+    token: z.string().optional(),
+    code: z.string().length(6, "Verification code must be exactly 6 digits").optional(),
+    email: z.string().trim().toLowerCase().email("Please provide a valid email address").optional(),
   })
-  .strict();
+  .strict()
+  .refine((data) => data.token || (data.code && data.email), {
+    message: "Either a verification link token or a 6-digit code and email is required.",
+  });
 
 export const resendVerificationSchema = z
   .object({

@@ -45,6 +45,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+    emailVerificationCodeHash: {
+      type: String,
+      select: false,
+    },
     emailVerificationExpires: {
       type: Date,
       select: false,
@@ -89,6 +93,7 @@ const userSchema = new mongoose.Schema(
         delete ret.passwordResetToken;
         delete ret.passwordResetExpires;
         delete ret.emailVerificationTokenHash;
+        delete ret.emailVerificationCodeHash;
         delete ret.emailVerificationExpires;
         delete ret.loginAttempts;
         delete ret.lockUntil;

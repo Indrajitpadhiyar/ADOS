@@ -135,7 +135,10 @@ export const AuthController = {
    */
   verifyEmail: asyncHandler(async (req, res) => {
     const token = req.body?.token || req.query?.token;
-    const result = await AuthService.verifyEmail(token, { req });
+    const code = req.body?.code || req.query?.code;
+    const email = req.body?.email || req.query?.email;
+
+    const result = await AuthService.verifyEmail({ token, code, email }, { req });
     return ApiResponse.success(res, result.message, {
       user: result.user,
       alreadyVerified: result.alreadyVerified || false,
