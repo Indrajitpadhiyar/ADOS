@@ -53,18 +53,25 @@ export const AuthController = {
    */
   login: asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-    const { user, accessToken, refreshToken } = await AuthService.login(
+    const result = await AuthService.login(
       { email, password },
       { req }
     );
 
-    res.cookie("accessToken", accessToken, getCookieOptions(ACCESS_COOKIE_MAX_AGE));
-    res.cookie("refreshToken", refreshToken, getCookieOptions(REFRESH_COOKIE_MAX_AGE));
+    if (result.requiresEmailVerification) {
+      return ApiResponse.success(res, result.message, {
+        user: result.user,
+        requiresEmailVerification: true,
+      });
+    }
+
+    res.cookie("accessToken", result.accessToken, getCookieOptions(ACCESS_COOKIE_MAX_AGE));
+    res.cookie("refreshToken", result.refreshToken, getCookieOptions(REFRESH_COOKIE_MAX_AGE));
 
     return ApiResponse.success(res, ResponseMessages.LOGIN_SUCCESS, {
-      user,
-      accessToken,
-      refreshToken,
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
     });
   }),
 
@@ -139,8 +146,16 @@ export const AuthController = {
     const email = req.body?.email || req.query?.email;
 
     const result = await AuthService.verifyEmail({ token, code, email }, { req });
+
+    if (result.accessToken && result.refreshToken) {
+      res.cookie("accessToken", result.accessToken, getCookieOptions(ACCESS_COOKIE_MAX_AGE));
+      res.cookie("refreshToken", result.refreshToken, getCookieOptions(REFRESH_COOKIE_MAX_AGE));
+    }
+
     return ApiResponse.success(res, result.message, {
       user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
       alreadyVerified: result.alreadyVerified || false,
     });
   }),

@@ -134,7 +134,42 @@ export const AuthService = {
     // Reset login attempts on success
     await user.handleSuccessfulLogin();
 
-    // Generate JWTs
+    // If account is unverified, automatically dispatch a 6-digit verification code to the login email
+    if (!user.emailVerified && !user.isVerified) {
+      const { rawToken, hashedToken } = TokenUtil.generateCryptoToken();
+      const { rawCode, hashedCode } = TokenUtil.generateVerificationCode();
+      const expiresMs = env.EMAIL_VERIFICATION_EXPIRES_MINUTES * 60 * 1000;
+
+      user.emailVerificationTokenHash = hashedToken;
+      user.emailVerificationCodeHash = hashedCode;
+      user.emailVerificationExpires = new Date(Date.now() + expiresMs);
+      await user.save({ validateBeforeSave: false });
+
+      const verificationUrl = `${env.APP_URL}/?verifyToken=${rawToken}`;
+      EmailService.sendVerificationEmail({
+        to: user.email,
+        name: user.name,
+        verificationUrl,
+        verificationCode: rawCode,
+      }).catch((err) => {
+        console.error("❌ Failed to send verification email on login:", err.message);
+      });
+
+      SecurityLogger.log("AUTH_LOGIN_REQUIRES_VERIFICATION", {
+        req: context.req,
+        userId: user._id,
+        email: user.email,
+        outcome: "PENDING_VERIFICATION",
+      });
+
+      return {
+        user: user.toJSON(),
+        requiresEmailVerification: true,
+        message: `Verification code sent to ${user.email}. Please verify to complete sign in.`,
+      };
+    }
+
+    // Generate JWTs for verified users
     const tokenPayload = { id: user._id.toString(), email: user.email, role: user.role };
     const accessToken = TokenUtil.generateAccessToken(tokenPayload);
     const refreshToken = TokenUtil.generateRefreshToken({ id: user._id.toString() });
@@ -395,6 +430,12 @@ export const AuthService = {
     user.emailVerificationCodeHash = undefined;
     user.emailVerificationExpires = undefined;
 
+    // Issue session tokens upon successful verification so user is authenticated
+    const tokenPayload = { id: user._id.toString(), email: user.email, role: user.role };
+    const accessToken = TokenUtil.generateAccessToken(tokenPayload);
+    const refreshToken = TokenUtil.generateRefreshToken({ id: user._id.toString() });
+
+    user.refreshToken = TokenUtil.hashToken(refreshToken);
     await user.save({ validateBeforeSave: false });
 
     SecurityLogger.log("AUTH_EMAIL_VERIFICATION_SUCCESS", {
@@ -407,6 +448,8 @@ export const AuthService = {
     return {
       message: ResponseMessages.EMAIL_VERIFIED_SUCCESS,
       user: user.toJSON(),
+      accessToken,
+      refreshToken,
     };
   },
 

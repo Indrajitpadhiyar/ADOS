@@ -188,6 +188,13 @@ export default function FullPageAuth() {
         return;
       }
 
+      if (data.data?.accessToken) {
+        localStorage.setItem("ados_token", data.data.accessToken);
+        if (data.data.user) {
+          localStorage.setItem("ados_user", JSON.stringify(data.data.user));
+        }
+      }
+
       if (data.data?.alreadyVerified) {
         setVerifyModal((prev) => ({
           ...prev,
@@ -198,8 +205,9 @@ export default function FullPageAuth() {
         setVerifyModal((prev) => ({
           ...prev,
           status: "success",
-          message: data.message || "Email verified successfully!",
+          message: data.message || "Email verified! You are now logged in.",
         }));
+        triggerToast("success", "Email verified successfully! Welcome to ADOS.");
       }
     } catch (err) {
       triggerToast("error", err.message || "Verification request failed.");
@@ -299,13 +307,6 @@ export default function FullPageAuth() {
         throw new Error(data.message || (data.errors && data.errors[0]?.message) || "Authentication failed");
       }
 
-      if (data.data?.accessToken) {
-        localStorage.setItem("ados_token", data.data.accessToken);
-        if (data.data.user) {
-          localStorage.setItem("ados_user", JSON.stringify(data.data.user));
-        }
-      }
-
       if (mode === "signup") {
         setVerifyModal({
           isOpen: true,
@@ -318,6 +319,28 @@ export default function FullPageAuth() {
           `Account created! Please check your inbox at ${formData.email.trim()}`
         );
       } else {
+        // If login detects unverified email, immediately show 6-digit code entry modal
+        if (data.data?.requiresEmailVerification) {
+          setVerifyModal({
+            isOpen: true,
+            status: "prompt",
+            email: formData.email.trim(),
+            message: data.message || `Verification required. Check your inbox at ${formData.email.trim()}`,
+          });
+          triggerToast(
+            "error",
+            `Account unverified. 6-digit verification code sent to ${formData.email.trim()}`
+          );
+          return;
+        }
+
+        if (data.data?.accessToken) {
+          localStorage.setItem("ados_token", data.data.accessToken);
+          if (data.data.user) {
+            localStorage.setItem("ados_user", JSON.stringify(data.data.user));
+          }
+        }
+
         triggerToast(
           "success",
           `Welcome back, ${data.data?.user?.name || formData.email.split("@")[0]}! Connecting...`
