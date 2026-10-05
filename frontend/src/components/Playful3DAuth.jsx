@@ -1,36 +1,36 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Eye, 
-  EyeOff, 
-  CheckCircle2, 
-  AlertCircle, 
-  X, 
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  X,
   Sparkles,
   Lock,
   Mail,
-  User
-} from 'lucide-react';
-import MessimoAdosLogo from './MessimoAdosLogo';
-import ClockWidget from './ClockWidget';
-import characterImg from '../assets/ados-character.jpg';
+  User,
+} from "lucide-react";
+import MessimoAdosLogo from "./MessimoAdosLogo";
+import ClockWidget from "./ClockWidget";
+import characterImg from "../assets/ados-character.png";
 
 export default function Playful3DAuth() {
   // 'signup' | 'login' (default to 'signup' matching reference image "Create account")
-  const [mode, setMode] = useState('signup');
+  const [mode, setMode] = useState("signup");
 
   // Form state
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
+    name: "",
+    email: "",
+    password: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSubmitted, setForgotSubmitted] = useState(false);
 
   const handleInputChange = (e) => {
@@ -44,20 +44,20 @@ export default function Playful3DAuth() {
   };
 
   const handleQuickFill = () => {
-    if (mode === 'signup') {
+    if (mode === "signup") {
       setFormData({
-        name: 'Alex Morgan',
-        email: 'alex.morgan@ados.io',
-        password: 'Password@2026'
+        name: "Alex Morgan",
+        email: "alex.morgan@ados.io",
+        password: "Password@2026",
       });
-      triggerToast('success', 'Demo sign up credentials applied!');
+      triggerToast("success", "Demo sign up credentials applied!");
     } else {
       setFormData({
-        name: '',
-        email: 'alex.morgan@ados.io',
-        password: 'Password@2026'
+        name: "",
+        email: "alex.morgan@ados.io",
+        password: "Password@2026",
       });
-      triggerToast('success', 'Demo login credentials applied!');
+      triggerToast("success", "Demo login credentials applied!");
     }
   };
 
@@ -65,12 +65,12 @@ export default function Playful3DAuth() {
     e.preventDefault();
 
     if (!formData.email || !formData.password) {
-      triggerToast('error', 'Please fill in your email and password.');
+      triggerToast("error", "Please fill in your email and password.");
       return;
     }
 
-    if (mode === 'signup' && formData.password.length < 6) {
-      triggerToast('error', 'Password should have at least 6 characters.');
+    if (mode === "signup" && formData.password.length < 6) {
+      triggerToast("error", "Password should have at least 6 characters.");
       return;
     }
 
@@ -78,10 +78,13 @@ export default function Playful3DAuth() {
 
     setTimeout(() => {
       setIsLoading(false);
-      if (mode === 'signup') {
-        triggerToast('success', `Account created! Welcome to ADOS, ${formData.name || formData.email.split('@')[0]}!`);
+      if (mode === "signup") {
+        triggerToast(
+          "success",
+          `Account created! Welcome to ADOS, ${formData.name || formData.email.split("@")[0]}!`,
+        );
       } else {
-        triggerToast('success', `Welcome back to ADOS! Connecting...`);
+        triggerToast("success", `Welcome back to ADOS! Connecting...`);
       }
     }, 1100);
   };
@@ -91,18 +94,17 @@ export default function Playful3DAuth() {
     if (!forgotEmail) return;
     setForgotSubmitted(true);
     setTimeout(() => {
-      triggerToast('success', `Password recovery link sent to ${forgotEmail}`);
+      triggerToast("success", `Password recovery link sent to ${forgotEmail}`);
       setTimeout(() => {
         setIsForgotModalOpen(false);
         setForgotSubmitted(false);
-        setForgotEmail('');
+        setForgotEmail("");
       }, 1000);
     }, 800);
   };
 
   return (
     <div className="w-full min-h-screen bg-[#cae89b] flex items-center justify-center p-3 sm:p-6 md:p-10 font-['Outfit','Poppins','Plus_Jakarta_Sans',sans-serif] selection:bg-[#9ed84f] selection:text-[#18360d]">
-      
       {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
@@ -112,17 +114,19 @@ export default function Playful3DAuth() {
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 350, damping: 25 }}
             className={`fixed top-6 right-6 z-50 flex items-center gap-3.5 px-5 py-3.5 rounded-2xl shadow-xl backdrop-blur-md border ${
-              toast.type === 'success'
-                ? 'bg-slate-900/95 text-white border-[#9ed84f]/40'
-                : 'bg-rose-950/95 text-white border-rose-500/40'
+              toast.type === "success"
+                ? "bg-slate-900/95 text-white border-[#9ed84f]/40"
+                : "bg-rose-950/95 text-white border-rose-500/40"
             }`}
           >
-            {toast.type === 'success' ? (
+            {toast.type === "success" ? (
               <CheckCircle2 className="w-5 h-5 text-[#9ed84f] shrink-0" />
             ) : (
               <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
             )}
-            <span className="text-xs sm:text-sm font-medium tracking-wide">{toast.message}</span>
+            <span className="text-xs sm:text-sm font-medium tracking-wide">
+              {toast.message}
+            </span>
             <button
               onClick={() => setToast(null)}
               className="ml-2 text-slate-400 hover:text-white transition-colors"
@@ -135,10 +139,8 @@ export default function Playful3DAuth() {
 
       {/* ================= TABLET DEVICE CONTAINER ================= */}
       <div className="relative w-full max-w-[1140px] bg-[#c3e69a] rounded-[36px] sm:rounded-[46px] md:rounded-[56px] border-[10px] sm:border-[14px] md:border-[18px] border-[#16261b] shadow-[0_30px_70px_-15px_rgba(25,50,30,0.38)] overflow-hidden flex flex-col lg:flex-row min-h-[640px] md:min-h-[700px]">
-        
         {/* ================= LEFT SIDE: 3D CHARACTER WORKSPACE ================= */}
         <div className="relative w-full lg:w-[52%] xl:w-[50%] min-h-[340px] lg:min-h-full bg-[#c0e496] overflow-hidden flex flex-col justify-between p-6 sm:p-8 select-none">
-          
           {/* Subtle Wall to Deep Forest Floor Split */}
           <div className="absolute inset-0 bg-gradient-to-b from-[#c3e69b] via-[#bfe296] to-[#1e4429]" />
 
@@ -156,12 +158,12 @@ export default function Playful3DAuth() {
               whileHover={{ scale: 1.02 }}
               className="relative w-full max-w-[420px] aspect-square rounded-3xl overflow-hidden shadow-2xl border-4 border-white/20"
             >
-              <img 
-                src={characterImg} 
-                alt="ADOS Platform Character at Work" 
+              <img
+                src={characterImg}
+                alt="ADOS Platform Character at Work"
                 className="w-full h-full object-cover"
               />
-              
+
               {/* Soft Ambient Corner Glow */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
             </motion.div>
@@ -175,12 +177,10 @@ export default function Playful3DAuth() {
             </span>
             <span className="text-[11px] opacity-75">v2.4 Live</span>
           </div>
-
         </div>
 
         {/* ================= RIGHT SIDE: PURE WHITE THEMED CARD ================= */}
         <div className="relative flex-1 bg-white rounded-[28px] sm:rounded-[36px] md:rounded-[44px] m-2 sm:m-3 md:m-4 p-6 sm:p-10 md:p-12 lg:p-14 flex flex-col justify-between shadow-sm">
-          
           {/* Top Brand Logo */}
           <div className="flex items-center justify-between">
             <MessimoAdosLogo brandName="ados" />
@@ -199,27 +199,25 @@ export default function Playful3DAuth() {
 
           {/* Form Content Area */}
           <div className="my-auto py-6 max-w-[360px] w-full mx-auto">
-            
             {/* Title */}
-            <motion.h1 
+            <motion.h1
               key={mode}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
               className="text-3xl sm:text-4xl font-extrabold text-[#1a2b20] text-center tracking-tight mb-8 font-['Outfit','Poppins',sans-serif]"
             >
-              {mode === 'signup' ? 'Create account' : 'Welcome back'}
+              {mode === "signup" ? "Create account" : "Welcome back"}
             </motion.h1>
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              
               {/* Optional Name Field in Sign Up */}
               <AnimatePresence>
-                {mode === 'signup' && (
+                {mode === "signup" && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
+                    animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.25 }}
                     className="overflow-hidden"
@@ -254,7 +252,7 @@ export default function Playful3DAuth() {
               {/* Password with Eye Toggle */}
               <div className="relative flex items-center">
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   name="password"
                   required
                   value={formData.password}
@@ -266,7 +264,7 @@ export default function Playful3DAuth() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                  title={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4 text-slate-500" />
@@ -277,7 +275,7 @@ export default function Playful3DAuth() {
               </div>
 
               {/* Forgot Password Link in Login Mode */}
-              {mode === 'login' && (
+              {mode === "login" && (
                 <div className="flex justify-end pr-2 pt-0.5">
                   <button
                     type="button"
@@ -299,15 +297,21 @@ export default function Playful3DAuth() {
               >
                 {isLoading ? (
                   <>
-                    <motion.div 
+                    <motion.div
                       animate={{ rotate: 360 }}
-                      transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                      className="w-4 h-4 border-2 border-[#1c3a0e] border-t-transparent rounded-full" 
+                      transition={{
+                        repeat: Infinity,
+                        duration: 1,
+                        ease: "linear",
+                      }}
+                      className="w-4 h-4 border-2 border-[#1c3a0e] border-t-transparent rounded-full"
                     />
                     <span>Please wait...</span>
                   </>
                 ) : (
-                  <span>{mode === 'signup' ? 'Create account' : 'Sign in'}</span>
+                  <span>
+                    {mode === "signup" ? "Create account" : "Sign in"}
+                  </span>
                 )}
               </motion.button>
             </form>
@@ -315,7 +319,7 @@ export default function Playful3DAuth() {
             {/* Social Divider */}
             <div className="text-center my-6">
               <span className="text-xs font-normal text-slate-400">
-                {mode === 'signup' ? 'or sign up with' : 'or sign in with'}
+                {mode === "signup" ? "or sign up with" : "or sign in with"}
               </span>
             </div>
 
@@ -326,7 +330,9 @@ export default function Playful3DAuth() {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.92 }}
                 type="button"
-                onClick={() => triggerToast('success', 'Google authentication initiated')}
+                onClick={() =>
+                  triggerToast("success", "Google authentication initiated")
+                }
                 className="w-10 h-10 rounded-full bg-[#eef7e1] hover:bg-[#e2f2ce] flex items-center justify-center text-[#213b14] font-bold text-sm transition-colors cursor-pointer"
                 title="Sign in with Google"
               >
@@ -338,7 +344,9 @@ export default function Playful3DAuth() {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.92 }}
                 type="button"
-                onClick={() => triggerToast('success', 'Microsoft single sign-on initiated')}
+                onClick={() =>
+                  triggerToast("success", "Microsoft single sign-on initiated")
+                }
                 className="w-10 h-10 rounded-full bg-[#eef7e1] hover:bg-[#e2f2ce] flex items-center justify-center text-[#213b14] font-bold text-sm transition-colors cursor-pointer"
                 title="Sign in with Microsoft"
               >
@@ -355,7 +363,9 @@ export default function Playful3DAuth() {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.92 }}
                 type="button"
-                onClick={() => triggerToast('success', 'GitHub authentication initiated')}
+                onClick={() =>
+                  triggerToast("success", "GitHub authentication initiated")
+                }
                 className="w-10 h-10 rounded-full bg-[#eef7e1] hover:bg-[#e2f2ce] flex items-center justify-center text-[#213b14] font-bold text-sm transition-colors cursor-pointer"
                 title="Sign in with GitHub"
               >
@@ -367,34 +377,48 @@ export default function Playful3DAuth() {
 
             {/* Terms and Privacy Disclaimer */}
             <div className="text-center mt-6 text-[11px] leading-relaxed text-slate-500 font-normal">
-              By creating an account you agree to ADOS's{' '}
-              <a href="#terms" onClick={(e) => { e.preventDefault(); triggerToast('success', 'Terms of Services clicked'); }} className="text-[#5b8c24] font-semibold hover:underline">
+              By creating an account you agree to ADOS's{" "}
+              <a
+                href="#terms"
+                onClick={(e) => {
+                  e.preventDefault();
+                  triggerToast("success", "Terms of Services clicked");
+                }}
+                className="text-[#5b8c24] font-semibold hover:underline"
+              >
                 Terms of Services
-              </a>{' '}
-              and{' '}
-              <a href="#privacy" onClick={(e) => { e.preventDefault(); triggerToast('success', 'Privacy Policy clicked'); }} className="text-[#5b8c24] font-semibold hover:underline">
+              </a>{" "}
+              and{" "}
+              <a
+                href="#privacy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  triggerToast("success", "Privacy Policy clicked");
+                }}
+                className="text-[#5b8c24] font-semibold hover:underline"
+              >
                 Privacy Policy
-              </a>.
+              </a>
+              .
             </div>
-
           </div>
 
           {/* Bottom Switch Mode Toggle */}
           <div className="text-center pt-4 border-t border-slate-100">
             <span className="text-xs text-slate-500">
-              {mode === 'signup' ? 'Have an account? ' : "Don't have an account? "}
+              {mode === "signup"
+                ? "Have an account? "
+                : "Don't have an account? "}
             </span>
             <button
               type="button"
-              onClick={() => setMode(mode === 'signup' ? 'login' : 'signup')}
+              onClick={() => setMode(mode === "signup" ? "login" : "signup")}
               className="text-xs font-bold text-[#5b8c24] hover:text-[#456b19] hover:underline cursor-pointer transition-colors"
             >
-              {mode === 'signup' ? 'Log in' : 'Sign up'}
+              {mode === "signup" ? "Log in" : "Sign up"}
             </button>
           </div>
-
         </div>
-
       </div>
 
       {/* ================= FORGOT PASSWORD MODAL ================= */}
@@ -431,7 +455,8 @@ export default function Playful3DAuth() {
               </div>
 
               <p className="text-xs text-slate-500 leading-relaxed">
-                Enter your email address and we'll send you a link to reset your account password.
+                Enter your email address and we'll send you a link to reset your
+                account password.
               </p>
 
               <form onSubmit={handleForgotSubmit} className="space-y-4">
@@ -457,7 +482,7 @@ export default function Playful3DAuth() {
                     disabled={forgotSubmitted}
                     className="px-6 py-2.5 rounded-full bg-[#9ed84f] hover:bg-[#8ecb3e] text-[#1c3a0e] font-bold text-xs shadow-sm cursor-pointer transition-colors"
                   >
-                    {forgotSubmitted ? 'Sending...' : 'Send reset link'}
+                    {forgotSubmitted ? "Sending..." : "Send reset link"}
                   </button>
                 </div>
               </form>
@@ -465,7 +490,6 @@ export default function Playful3DAuth() {
           </div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

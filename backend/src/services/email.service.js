@@ -1,13 +1,20 @@
 import { env } from "../config/env.js";
 import { SecurityLogger } from "../utils/securityLogger.util.js";
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
+
+const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+
+const maskEmail = (email) => {
+  if (!email || typeof email !== "string" || !email.includes("@")) return "[INVALID_EMAIL]";
+  const [local, domain] = email.split("@");
+  if (local.length <= 2) return `${local[0]}*@${domain}`;
+  return `${local.slice(0, 2)}${"*".repeat(Math.max(1, local.length - 2))}@${domain}`;
+};
 
 /**
  * Enterprise Email Dispatch Service
- * Supports:
- * 1. Nodemailer (Gmail SMTP) when EMAIL_PASS is configured (delivers to ANY recipient worldwide).
- * 2. Resend REST API when RESEND_API_KEY is configured.
- * 3. Local development console logging with the 6-digit code for instant verification.
+ * Uses Gmail SMTP (Nodemailer) for universal real-inbox delivery with Resend fallback
  */
 export const EmailService = {
   /**
@@ -15,7 +22,7 @@ export const EmailService = {
    * @param {Object} params - { name, verificationUrl, verificationCode, expiresMinutes }
    * @returns {string} HTML string
    */
-  getVerificationEmailHtml({ name, verificationUrl, verificationCode, expiresMinutes = 30 }) {
+  getVerificationEmailHtml({ name, verificationUrl, verificationCode, expiresMinutes = 60 }) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -112,12 +119,7 @@ export const EmailService = {
    * @returns {Promise<{ success: boolean, messageId?: string, error?: string }>}
    */
   async sendVerificationEmail({ to, name, verificationUrl, verificationCode }) {
-    // Developer convenience: Always log code and link in terminal during development
-    console.log(`\n📬 =====================================================`);
-    console.log(`✉️ [EMAIL DISPATCH] Recipient: ${to}`);
-    console.log(`🔑 Verification Code : ${verificationCode}`);
-    console.log(`🔗 Verification Link : ${verificationUrl}`);
-    console.log(`=====================================================\n`);
+    console.log(`📨 [EmailService] Verification email requested for: ${maskEmail(to)}`);
 
     const htmlContent = this.getVerificationEmailHtml({
       name,
@@ -127,8 +129,8 @@ export const EmailService = {
     });
     const textContent = `Hi ${name || "there"},\n\nYour ADOS 6-digit verification code is: ${verificationCode}\n\nAlternatively, verify by clicking: ${verificationUrl}\n\nThis code will expire in ${env.EMAIL_VERIFICATION_EXPIRES_MINUTES} minutes.`;
 
-    // 1. Check if Gmail SMTP (EMAIL_PASS) is configured
-    if (env.EMAIL_PASS) {
+    // 1. Primary: Gmail SMTP (Nodemailer) — Delivers to any inbox worldwide
+    if (env.EMAIL_PASS && env.EMAIL_USER) {
       try {
         const transporter = nodemailer.createTransport({
           service: "gmail",
@@ -139,76 +141,64 @@ export const EmailService = {
         });
 
         const info = await transporter.sendMail({
-          from: `"ADOS" <${env.EMAIL_USER}>`,
+          from: `"ADOS Workspace" <${env.EMAIL_USER}>`,
           to,
           subject: `${verificationCode} is your ADOS verification code`,
           text: textContent,
           html: htmlContent,
         });
 
-        console.log(`✅ [EmailService] Gmail SMTP email delivered successfully to ${to} [MessageId: ${info.messageId}]`);
-        SecurityLogger.log("EMAIL_VERIFICATION_DISPATCHED", { outcome: "SUCCESS" });
+        console.log(`✅ [EmailService] Gmail SMTP email delivered successfully to ${maskEmail(to)} [MessageId: ${info.messageId}]`);
+        SecurityLogger.log("EMAIL_VERIFICATION_DISPATCHED", {
+          email: maskEmail(to),
+          outcome: "SUCCESS",
+        });
         return { success: true, messageId: info.messageId };
       } catch (smtpErr) {
         console.error("❌ [EmailService] Gmail SMTP Error:", smtpErr.message);
-        SecurityLogger.log("EMAIL_DISPATCH_FAILED", {
-          details: smtpErr.message,
-          outcome: "FAILURE",
-        });
-        return { success: false, error: smtpErr.message };
+        // Fall through to Resend below if SMTP fails
       }
     }
 
-    // 2. Fallback to Resend REST API
-    const apiKey = env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.warn("⚠️ [EmailService] Neither RESEND_API_KEY nor EMAIL_PASS is configured. Verification simulated.");
-      return { success: true, simulated: true };
-    }
-
-    try {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+    // 2. Fallback: Resend SDK
+    if (resend) {
+      try {
+        const { data, error } = await resend.emails.send({
           from: env.EMAIL_FROM,
           to: [to],
           subject: `${verificationCode} is your ADOS verification code`,
           html: htmlContent,
           text: textContent,
-        }),
-      });
+        });
 
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        console.error("❌ [EmailService] Resend API Error:", responseData);
-        if (responseData.message && responseData.message.includes("only send testing emails to your own email address")) {
-          console.warn(
-            `\n⚠️ [Email Notice] Resend's free tier currently only delivers to ${env.EMAIL_USER}.\nUse the verification code printed in your console above: ${verificationCode}\nOr add EMAIL_PASS (Gmail App Password) in .env to deliver to ANY recipient!\n`
-          );
+        if (error) {
+          console.error("❌ [EmailService] Resend request failed:", error.message);
+          SecurityLogger.log("EMAIL_DISPATCH_FAILED", {
+            email: maskEmail(to),
+            details: error.message || "Failed to dispatch email via Resend",
+            outcome: "FAILURE",
+          });
+          return { success: false, error: error.message };
         }
 
-        SecurityLogger.log("EMAIL_DISPATCH_FAILED", {
-          details: responseData.message || "Failed to dispatch email via Resend",
+        console.log(`✅ [EmailService] Resend email dispatched [MessageId: ${data.id}]`);
+        SecurityLogger.log("EMAIL_VERIFICATION_DISPATCHED", {
+          email: maskEmail(to),
+          outcome: "SUCCESS",
+        });
+        return { success: true, messageId: data.id };
+      } catch (err) {
+        console.error("❌ [EmailService] Unexpected Error:", err.message);
+        SecurityLogger.log("EMAIL_DISPATCH_EXCEPTION", {
+          email: maskEmail(to),
+          details: err.message,
           outcome: "FAILURE",
         });
-        return { success: false, error: responseData.message };
+        return { success: false, error: err.message };
       }
-
-      console.log(`✅ [EmailService] Resend email dispatched to ${to} [ID: ${responseData.id}]`);
-      SecurityLogger.log("EMAIL_VERIFICATION_DISPATCHED", { outcome: "SUCCESS" });
-      return { success: true, messageId: responseData.id };
-    } catch (err) {
-      console.error("❌ [EmailService] Unexpected Error:", err.message);
-      SecurityLogger.log("EMAIL_DISPATCH_EXCEPTION", {
-        details: err.message,
-        outcome: "FAILURE",
-      });
-      return { success: false, error: err.message };
     }
+
+    console.warn("⚠️ [EmailService] No active email provider configured.");
+    return { success: false, error: "No active email provider configured." };
   },
 };

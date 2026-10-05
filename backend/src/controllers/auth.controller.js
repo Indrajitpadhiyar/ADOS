@@ -31,7 +31,7 @@ export const AuthController = {
    */
   register: asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
-    const { user, accessToken, refreshToken, requiresEmailVerification } = await AuthService.register(
+    const { user, accessToken, refreshToken } = await AuthService.register(
       { name, email, password },
       { req }
     );
@@ -40,11 +40,11 @@ export const AuthController = {
     res.cookie("accessToken", accessToken, getCookieOptions(ACCESS_COOKIE_MAX_AGE));
     res.cookie("refreshToken", refreshToken, getCookieOptions(REFRESH_COOKIE_MAX_AGE));
 
-    return ApiResponse.created(res, ResponseMessages.VERIFICATION_EMAIL_SENT, {
+    return ApiResponse.created(res, "Account registered successfully!", {
       user,
       accessToken,
       refreshToken,
-      requiresEmailVerification,
+      requiresEmailVerification: false,
     });
   }),
 

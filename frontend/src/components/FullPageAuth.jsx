@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import ClockWidget from "./ClockWidget";
 import SmoothInput from "./SmoothInput";
-import characterImg from "../assets/ados-character.jpg";
+import characterImg from "../assets/ados-character.png";
 
 export default function FullPageAuth() {
   // 'signup' | 'login'

@@ -108,8 +108,12 @@ const userSchema = new mongoose.Schema(
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
 
-  const salt = await bcrypt.genSalt(12);
-  this.password = await bcrypt.hash(this.password, salt);
+  // Only hash if not already a bcrypt hash
+  if (!this.password.startsWith("$2a$") && !this.password.startsWith("$2b$")) {
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+  }
+
   if (!this.isNew) {
     // Offset by 1s to ensure token timestamp > passwordChangedAt
     this.passwordChangedAt = new Date(Date.now() - 1000);
