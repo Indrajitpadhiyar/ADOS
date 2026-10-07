@@ -25,7 +25,7 @@ export default function DeviceShowcaseSection() {
     {
       title: "Instant Insights",
       description:
-        "Real-time predictive attribution tracking across Meta, Google Ads, and TikTok with zero conversion delay.",
+        "Real-time predictive attribution tracking across Meta, Google Ads, and LinkedIn with zero conversion delay.",
     },
     {
       title: "AI technology",
@@ -206,7 +206,7 @@ export default function DeviceShowcaseSection() {
                       <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight flex items-baseline gap-1.5 sm:gap-2">
                         $ 1 342,567
                         <span className="text-[11px] sm:text-xs font-bold text-emerald-600 flex items-center gap-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           +18%
                         </span>
                       </div>

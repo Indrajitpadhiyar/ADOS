@@ -172,7 +172,7 @@ export default function Playful3DAuth() {
           {/* Bottom Left Subtle Indicator */}
           <div className="relative z-10 flex items-center justify-between text-xs text-[#1e3d23] font-semibold px-2">
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#1e4429] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[#1e4429]" />
               ADOS Studio Workspace
             </span>
             <span className="text-[11px] opacity-75">v2.4 Live</span>

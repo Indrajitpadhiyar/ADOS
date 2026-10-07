@@ -210,7 +210,7 @@ export default function StrategicBentoSection() {
                         duration={1.8}
                         triggerRef={cardLeftRef}
                       />
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
                     </div>
                     {/* Small Progress Bar */}
                     <div className="w-full bg-slate-100 h-1 rounded-full mt-1.5 overflow-hidden">
@@ -320,7 +320,7 @@ export default function StrategicBentoSection() {
               <div className="bg-[#18191f] rounded-3xl p-5 border border-white/[0.06] flex flex-col justify-between min-h-[140px] shadow-inner">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-slate-400 font-medium">Transactions</span>
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
                 </div>
 
                 <div className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mt-auto">

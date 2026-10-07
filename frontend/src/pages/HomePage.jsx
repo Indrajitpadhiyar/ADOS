@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import LocomotiveScroll from "locomotive-scroll";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import Navbar from "../../components/layout/Navbar";
-import Footer from "../../components/layout/Footer";
-import HeroSection from "../../components/sections/HeroSection";
-import OmnichannelShowcaseSection from "../../components/sections/OmnichannelShowcaseSection";
-import StrategicBentoSection from "../../components/sections/StrategicBentoSection";
-import DeviceShowcaseSection from "../../components/sections/DeviceShowcaseSection";
-import MaximizeEfficiencySection from "../../components/sections/MaximizeEfficiencySection";
-import AboutSection from "../../components/sections/AboutSection";
-import ContactModal from "../../components/common/ContactModal";
+import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
+import HeroSection from "../components/sections/HeroSection";
+import OmnichannelShowcaseSection from "../components/sections/OmnichannelShowcaseSection";
+import StrategicBentoSection from "../components/sections/StrategicBentoSection";
+import DeviceShowcaseSection from "../components/sections/DeviceShowcaseSection";
+import MaximizeEfficiencySection from "../components/sections/MaximizeEfficiencySection";
+import AiAgentSection from "../components/sections/AiAgentSection";
+import AboutSection from "../components/sections/AboutSection";
+import ContactModal from "../components/common/ContactModal";
 
-export default function Home({ onOpenAuth }) {
+export default function HomePage() {
+  const navigate = useNavigate();
   const [isContactOpen, setIsContactOpen] = useState(false);
 
   // Initialize smooth scrolling with Locomotive Scroll (Lenis v5)
@@ -50,16 +53,17 @@ export default function Home({ onOpenAuth }) {
       {/* Top Navbar */}
       <Navbar
         onOpenContact={() => setIsContactOpen(true)}
-        onOpenAuth={onOpenAuth}
+        onOpenAuth={() => navigate("/auth")}
+        onOpenDashboard={() => navigate("/dashboard")}
       />
 
       {/* Page 1: Hero Section */}
       <HeroSection onOpenContact={() => setIsContactOpen(true)} />
 
-      {/* Page 2: Omnichannel Showcase (Letter-by-Letter Reveal & Centered Badges) */}
+      {/* Page 2: Omnichannel Showcase */}
       <OmnichannelShowcaseSection />
 
-      {/* Page 3: Strategic Bento Section (Exact Ditto Copy of Reference) */}
+      {/* Page 3: Strategic Bento Section */}
       <StrategicBentoSection />
 
       {/* Page 4: Device Showcase & Giant ADOS */}
@@ -68,11 +72,20 @@ export default function Home({ onOpenAuth }) {
       {/* Page 5: Maximize Efficiency */}
       <MaximizeEfficiencySection
         onOpenContact={() => setIsContactOpen(true)}
-        onOpenAuth={onOpenAuth}
+        onOpenAuth={() => navigate("/auth")}
       />
 
-      {/* About & Interactive Simulator */}
-      <AboutSection onOpenContact={() => setIsContactOpen(true)} />
+      {/* Page 6: Autonomous AI Agent Section */}
+      <AiAgentSection
+        onOpenContact={() => setIsContactOpen(true)}
+        onOpenAuth={() => navigate("/auth")}
+      />
+
+      {/* Pricing Plans Section */}
+      <AboutSection
+        onOpenContact={() => setIsContactOpen(true)}
+        onOpenAuth={() => navigate("/auth")}
+      />
 
       {/* Footer */}
       <Footer onOpenContact={() => setIsContactOpen(true)} />

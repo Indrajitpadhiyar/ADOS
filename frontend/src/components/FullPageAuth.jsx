@@ -16,7 +16,7 @@ import ClockWidget from "./ClockWidget";
 import SmoothInput from "./SmoothInput";
 import characterImg from "../assets/ados-character.png";
 
-export default function FullPageAuth() {
+export default function FullPageAuth({ onLoginSuccess }) {
   // 'signup' | 'login'
   const [mode, setMode] = useState("signup");
 
@@ -208,6 +208,11 @@ export default function FullPageAuth() {
           message: data.message || "Email verified! You are now logged in.",
         }));
         triggerToast("success", "Email verified successfully! Welcome to ADOS.");
+        setTimeout(() => {
+          if (onLoginSuccess) {
+            onLoginSuccess(data.data?.user || { name: emailToVerify.split("@")[0] });
+          }
+        }, 700);
       }
     } catch (err) {
       triggerToast("error", err.message || "Verification request failed.");
@@ -345,6 +350,11 @@ export default function FullPageAuth() {
           "success",
           `Welcome back, ${data.data?.user?.name || formData.email.split("@")[0]}! Connecting...`
         );
+        setTimeout(() => {
+          if (onLoginSuccess) {
+            onLoginSuccess(data.data?.user || { name: formData.email.split("@")[0] });
+          }
+        }, 600);
       }
     } catch (err) {
       triggerToast("error", err.message || "Failed to connect to authentication server.");
@@ -429,7 +439,7 @@ export default function FullPageAuth() {
         {/* Top Header Floating Controls */}
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/70 backdrop-blur-md border border-white/60 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-[#1b3e21] animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-[#1b3e21]" />
             <span className="text-xs font-bold text-[#15341a] tracking-wide">
               ADOS Workspace
             </span>
@@ -728,6 +738,22 @@ export default function FullPageAuth() {
                 <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
               </svg>
             </motion.button>
+          </div>
+
+          {/* Direct Demo Ad Dashboard Entry */}
+          <div className="text-center mt-3.5">
+            <button
+              type="button"
+              onClick={() => {
+                triggerToast("success", "Entering ADOS Live Ad Intelligence Dashboard...");
+                setTimeout(() => {
+                  if (onLoginSuccess) onLoginSuccess({ name: "Advertiser" });
+                }, 300);
+              }}
+              className="px-4 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs hover:scale-105"
+            >
+              <span>⚡ View Live Ad Dashboard Directly</span>
+            </button>
           </div>
 
           {/* Terms and Privacy Notice */}
