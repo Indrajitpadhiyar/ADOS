@@ -5,7 +5,6 @@ import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
 import ManageAdsPage from "./pages/ManageAdsPage";
 import CreateAdPage from "./pages/CreateAdPage";
-import CreateCampaignPage from "./pages/CreateCampaignPage";
 import ManageAccountPage from "./pages/ManageAccountPage";
 import SettingsPage from "./pages/SettingsPage";
 
@@ -70,14 +69,14 @@ export default function App() {
           element={<CreateAdPage user={user} onLogout={handleLogout} />}
         />
 
-        {/* Create Campaign Page */}
+        {/* Redirect old campaign route to Create Ads */}
         <Route
           path="/create-campaign"
-          element={<CreateCampaignPage user={user} onLogout={handleLogout} />}
+          element={<Navigate to="/create-ads" replace />}
         />
         <Route
           path="/dashboard/create-campaign"
-          element={<CreateCampaignPage user={user} onLogout={handleLogout} />}
+          element={<Navigate to="/create-ads" replace />}
         />
 
         {/* Manage Connected Accounts & Team */}

@@ -15,10 +15,8 @@ export default function DashboardPage({ user, onLogout }) {
         navigate("/manage-ads");
         break;
       case "create-ads":
-        navigate("/create-ads");
-        break;
       case "create-campaign":
-        navigate("/create-campaign");
+        navigate("/create-ads");
         break;
       case "manage-account":
         navigate("/manage-account");

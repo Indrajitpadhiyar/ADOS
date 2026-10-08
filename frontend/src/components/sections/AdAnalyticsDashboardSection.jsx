@@ -446,11 +446,11 @@ export default function AdAnalyticsDashboardSection({ onOpenContact, onOpenAuth,
             {/* In embedded dashboard: Quick Action to Create Campaign */}
             {onNavigate && (
               <button
-                onClick={() => onNavigate("create-campaign")}
+                onClick={() => onNavigate("create-ads")}
                 className="px-4 py-2 rounded-full bg-[#ff4a22] hover:bg-[#e03d17] text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>New Campaign</span>
+                <span>Create Ad</span>
               </button>
             )}
 

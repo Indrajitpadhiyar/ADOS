@@ -49,13 +49,6 @@ export default function DashboardSidebar({
       description: "Multi-Platform Designer",
     },
     {
-      id: "create-campaign",
-      label: "Create Campaign",
-      icon: Rocket,
-      badge: "AI Bid",
-      description: "Omnichannel Wizard",
-    },
-    {
       id: "manage-account",
       label: "Manage Account",
       icon: UserCheck,

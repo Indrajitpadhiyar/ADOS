@@ -368,10 +368,10 @@ export default function DashboardOverviewSection({ user, onNavigate }) {
           </div>
 
           <button
-            onClick={() => onNavigate("create-campaign")}
+            onClick={() => onNavigate("create-ads")}
             className="px-4 py-2 rounded-full bg-[#0f766e] hover:bg-[#0d655f] text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
           >
-            <span>+ New Campaign</span>
+            <span>+ Create Ad</span>
           </button>
         </div>
       </div>

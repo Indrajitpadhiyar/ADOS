@@ -528,6 +528,9 @@ export default function CreateAdSection({ onAdCreated }) {
     }, 2200);
   };
 
+  const handlePublish = handleLaunchCampaign;
+
+
   return (
     <div className="w-full space-y-8 animate-fadeIn font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Launching Handshake Loading Modal */}
@@ -1164,7 +1167,7 @@ export default function CreateAdSection({ onAdCreated }) {
               </span>
             </div>
 
-            <form onSubmit={handlePublish} className="space-y-6">
+            <form onSubmit={handleLaunchCampaign} className="space-y-6">
               {/* Ad Name & Campaign */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
