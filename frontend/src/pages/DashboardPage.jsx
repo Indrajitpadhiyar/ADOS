@@ -1,10 +1,20 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import DashboardOverviewSection from "../components/sections/DashboardOverviewSection";
 
 export default function DashboardPage({ user, onLogout }) {
   const navigate = useNavigate();
+
+  // If accidentally loaded inside a popup window, redirect opener to full browser dashboard and close popup
+  useEffect(() => {
+    if (window.opener && window.opener !== window) {
+      try {
+        window.opener.location.href = "/dashboard";
+      } catch (e) {}
+      window.close();
+    }
+  }, []);
 
   const handleNavigate = (tab) => {
     switch (tab) {

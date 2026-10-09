@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PlatformLogo from "../common/PlatformLogo";
+import { api } from "../../services/api";
 import {
   Layers,
   Search,
@@ -24,148 +25,78 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
-// Mock ads database
-const INITIAL_ADS = [
-  {
-    id: "ad-01",
-    name: "Summer_Scale_UGC_Reel_V1",
-    campaign: "Meta_Advantage_Scale_US_Broad",
-    platform: "meta",
-    format: "Video (9:16)",
-    thumbnail: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=500&auto=format&fit=crop&q=60",
-    status: "active",
-    spend: "$8,420",
-    impressions: "640,000",
-    clicks: "28,400",
-    ctr: "4.43%",
-    cpa: "$3.80",
-    roas: "4.92x",
-    conversions: "2,215",
-  },
-  {
-    id: "ad-02",
-    name: "PMax_Asset_BestSellers_Carousel",
-    campaign: "Google_PMax_Top_Sellers_AssetGroup",
-    platform: "google",
-    format: "Multi-Asset (Responsive)",
-    thumbnail: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&auto=format&fit=crop&q=60",
-    status: "active",
-    spend: "$12,300",
-    impressions: "720,000",
-    clicks: "34,200",
-    ctr: "4.75%",
-    cpa: "$5.20",
-    roas: "4.60x",
-    conversions: "2,365",
-  },
-  {
-    id: "ad-03",
-    name: "LinkedIn_B2B_Executive_Demo_01",
-    campaign: "LinkedIn_B2B_DecisionMakers_Q4",
-    platform: "linkedin",
-    format: "Sponsored InFeed (1:1)",
-    thumbnail: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=500&auto=format&fit=crop&q=60",
-    status: "active",
-    spend: "$6,150",
-    impressions: "590,000",
-    clicks: "19,800",
-    ctr: "3.35%",
-    cpa: "$6.10",
-    roas: "3.95x",
-    conversions: "1,008",
-  },
-  {
-    id: "ad-04",
-    name: "Shorts_Direct_Promo_15Sec",
-    campaign: "YouTube_Shorts_Direct_Conversion",
-    platform: "youtube",
-    format: "Shorts Video (9:16)",
-    thumbnail: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=500&auto=format&fit=crop&q=60",
-    status: "paused",
-    spend: "$3,890",
-    impressions: "290,000",
-    clicks: "9,400",
-    ctr: "3.24%",
-    cpa: "$8.90",
-    roas: "3.40x",
-    conversions: "437",
-  },
-  {
-    id: "ad-05",
-    name: "Amazon_Sponsored_HeroPack_Video",
-    campaign: "Amazon_Sponsored_Brands_HeroPack",
-    platform: "amazon",
-    format: "In-Search Video (16:9)",
-    thumbnail: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=60",
-    status: "active",
-    spend: "$4,250",
-    impressions: "115,000",
-    clicks: "7,800",
-    ctr: "6.78%",
-    cpa: "$11.20",
-    roas: "5.85x",
-    conversions: "379",
-  },
-  {
-    id: "ad-06",
-    name: "Meta_Retargeting_DynamicFeed_V4",
-    campaign: "Meta_Retargeting_Catalog_Sales_DPA",
-    platform: "meta",
-    format: "Dynamic Catalog (1:1)",
-    thumbnail: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=60",
-    status: "active",
-    spend: "$9,200",
-    impressions: "680,000",
-    clicks: "32,100",
-    ctr: "4.72%",
-    cpa: "$3.95",
-    roas: "5.20x",
-    conversions: "2,329",
-  },
-];
-
 export default function ManageAdsSection({ onCreateAdClick }) {
-  const [ads, setAds] = useState(INITIAL_ADS);
+  const [ads, setAds] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [platformFilter, setPlatformFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedAdForPreview, setSelectedAdForPreview] = useState(null);
   const [actionNotice, setActionNotice] = useState(null);
 
-  // Toggle active/paused status
-  const toggleAdStatus = (adId) => {
+  useEffect(() => {
+    loadAds();
+  }, []);
+
+  const loadAds = async () => {
+    try {
+      setIsLoading(true);
+      const data = await api.getAds();
+      if (Array.isArray(data)) {
+        setAds(data.map((ad) => ({ ...ad, id: ad._id })));
+      }
+    } catch (err) {
+      console.warn("Notice: Failed to fetch ads:", err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Toggle active/paused status via real MongoDB endpoint
+  const toggleAdStatus = async (adId) => {
+    const target = ads.find((a) => a.id === adId);
+    if (!target) return;
+    const nextStatus = target.status === "active" ? "paused" : "active";
+
     setAds((prev) =>
-      prev.map((ad) => {
-        if (ad.id === adId) {
-          const nextStatus = ad.status === "active" ? "paused" : "active";
-          showNotice(`Ad "${ad.name}" is now ${nextStatus.toUpperCase()}`);
-          return { ...ad, status: nextStatus };
-        }
-        return ad;
-      })
+      prev.map((ad) => (ad.id === adId ? { ...ad, status: nextStatus } : ad))
     );
+    showNotice(`Ad "${target.name}" is now ${nextStatus.toUpperCase()}`);
+
+    try {
+      await api.toggleAdStatus(adId);
+    } catch (err) {
+      console.error("Failed to toggle status on server:", err);
+    }
   };
 
-  // Duplicate ad
-  const handleDuplicate = (ad) => {
-    const newAd = {
-      ...ad,
-      id: `ad-${Date.now().toString().slice(-4)}`,
-      name: `${ad.name}_Copy`,
-      status: "paused",
-      spend: "$0",
-      impressions: "0",
-      clicks: "0",
-      conversions: "0",
-    };
-    setAds([newAd, ...ads]);
-    showNotice(`Duplicated ad: "${newAd.name}" created as Paused`);
+  // Duplicate ad via real MongoDB endpoint
+  const handleDuplicate = async (ad) => {
+    try {
+      const created = await api.createAd({
+        name: `${ad.name}_Copy`,
+        campaign: ad.campaign,
+        platform: ad.platform,
+        format: ad.format,
+        thumbnail: ad.thumbnail,
+        budget: ad.budget || 500,
+      });
+      setAds((prev) => [{ ...created, id: created._id }, ...prev]);
+      showNotice(`Duplicated ad: "${ad.name}_Copy" created`);
+    } catch (err) {
+      showNotice(`Failed to duplicate: ${err.message}`);
+    }
   };
 
-  // Delete ad
-  const handleDelete = (adId, adName) => {
+  // Delete ad via real MongoDB endpoint
+  const handleDelete = async (adId, adName) => {
     setAds((prev) => prev.filter((a) => a.id !== adId));
     showNotice(`Ad "${adName}" was removed`);
+    try {
+      await api.deleteAd(adId);
+    } catch (err) {
+      console.error("Failed to delete ad on server:", err);
+    }
   };
 
   const showNotice = (msg) => {

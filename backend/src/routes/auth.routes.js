@@ -25,6 +25,7 @@ const router = Router();
  */
 router.post("/register", authLimiter, validate(registerSchema), AuthController.register);
 router.post("/login", authLimiter, validate(loginSchema), AuthController.login);
+router.post("/google", authLimiter, AuthController.google);
 router.post("/refresh", tokenRefreshLimiter, AuthController.refreshToken);
 router.post("/verify-email", emailVerificationLimiter, validate(verifyEmailSchema), AuthController.verifyEmail);
 router.get("/verify-email", emailVerificationLimiter, AuthController.verifyEmail);

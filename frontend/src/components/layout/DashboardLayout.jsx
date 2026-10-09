@@ -247,14 +247,22 @@ export default function DashboardLayout({ children, user, onLogout }) {
 
               {/* User Avatar */}
               <div className="flex items-center gap-2 pl-1 sm:pl-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#ff4a22] to-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                  {user?.name ? user.name.slice(0, 2).toUpperCase() : "AD"}
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-tr from-[#ff4a22] to-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt={user?.name || "User"} className="w-full h-full object-cover" />
+                  ) : user?.name ? (
+                    user.name.slice(0, 2).toUpperCase()
+                  ) : (
+                    "AD"
+                  )}
                 </div>
                 <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-xs font-bold leading-tight text-[#111113] truncate max-w-[100px]">
+                  <span className="text-xs font-bold leading-tight text-[#111113] truncate max-w-[120px]">
                     {user?.name || "Advertiser"}
                   </span>
-                  <span className="text-[10px] text-slate-400 leading-tight">Master Admin</span>
+                  <span className="text-[10px] text-slate-400 leading-tight">
+                    {user?.role ? (user.role === "admin" ? "Workspace Admin" : user.role) : "Workspace Admin"}
+                  </span>
                 </div>
               </div>
 

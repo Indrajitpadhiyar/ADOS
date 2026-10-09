@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 
-export default function Navbar({ onOpenContact, onOpenAuth, onOpenDashboard }) {
+export default function Navbar({ onOpenContact, onOpenAuth, onOpenDashboard, user }) {
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}
@@ -32,21 +32,24 @@ export default function Navbar({ onOpenContact, onOpenAuth, onOpenDashboard }) {
 
         {/* Navigation Items */}
         <nav className="hidden md:flex items-center gap-8 text-[15px] font-medium text-slate-700">
-          <a
-            href="#dashboard"
-            onClick={(e) => {
-              if (onOpenDashboard) {
-                e.preventDefault();
-                onOpenDashboard();
-              }
-            }}
-            className="hover:text-black transition-colors flex items-center gap-1.5 hover:-translate-y-0.5 transform duration-150 font-bold text-slate-900 cursor-pointer"
-          >
-            Dashboard
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-              Live
-            </span>
-          </a>
+          {/* Dashboard link is ONLY shown when user is logged in */}
+          {user && (
+            <a
+              href="#dashboard"
+              onClick={(e) => {
+                if (onOpenDashboard) {
+                  e.preventDefault();
+                  onOpenDashboard();
+                }
+              }}
+              className="hover:text-black transition-colors flex items-center gap-1.5 hover:-translate-y-0.5 transform duration-150 font-bold text-slate-900 cursor-pointer"
+            >
+              Dashboard
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                Live
+              </span>
+            </a>
+          )}
           <a
             href="#product"
             className="hover:text-black transition-colors hover:-translate-y-0.5 transform duration-150"
@@ -83,7 +86,7 @@ export default function Navbar({ onOpenContact, onOpenAuth, onOpenDashboard }) {
           </a>
         </nav>
 
-        {/* Right Actions: Dark pill Contact CTA + Language Switcher + Sign In */}
+        {/* Right Actions: Dark pill Contact CTA + Language Switcher + Sign In / Dashboard */}
         <div className="flex items-center gap-3.5 sm:gap-5">
           <button
             onClick={onOpenContact}
@@ -99,25 +102,37 @@ export default function Navbar({ onOpenContact, onOpenAuth, onOpenDashboard }) {
             <span className="hover:text-black cursor-pointer transition-colors">DE</span>
           </div>
 
-          {/* Dashboard quick portal button */}
-          {onOpenDashboard && (
-            <button
-              onClick={onOpenDashboard}
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-200/90 transition-all hover:scale-105 cursor-pointer shadow-2xs"
-            >
-              <span>Dashboard Portal</span>
-            </button>
-          )}
-
-          {/* Sign In quick entry */}
-          {onOpenAuth && (
-            <button
-              onClick={onOpenAuth}
-              className="hidden lg:inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 hover:text-black transition-colors px-3 py-1.5 rounded-lg border border-slate-200/80 hover:border-slate-300 cursor-pointer"
-            >
-              Sign In
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+          {/* If user is logged in: show Dashboard button */}
+          {user ? (
+            onOpenDashboard && (
+              <button
+                onClick={onOpenDashboard}
+                className="inline-flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-black text-white transition-all hover:scale-105 cursor-pointer shadow-sm"
+              >
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name || "User"}
+                    className="w-4 h-4 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+                <span>Dashboard</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+              </button>
+            )
+          ) : (
+            /* If user is NOT logged in: show Sign In button only */
+            onOpenAuth && (
+              <button
+                onClick={onOpenAuth}
+                className="hidden lg:inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 hover:text-black transition-colors px-3 py-1.5 rounded-lg border border-slate-200/80 hover:border-slate-300 cursor-pointer"
+              >
+                Sign In
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )
           )}
         </div>
       </div>

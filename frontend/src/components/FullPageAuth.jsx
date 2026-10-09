@@ -64,34 +64,144 @@ export default function FullPageAuth({ onLoginSuccess }) {
     setTimeout(() => setToast(null), 4500);
   };
 
-  const handleQuickFill = () => {
-    if (mode === "signup") {
-      setFormData({
-        name: "Alex Morgan",
-        email: "alex.morgan@ados.io",
-        password: "Password@2026",
-        confirmPassword: "Password@2026",
-      });
-      triggerToast("success", "Demo sign up credentials filled!");
+  const GOOGLE_CLIENT_ID = "120242372392-ts44il7ibb3el22dbo55sos8lrqrat9u.apps.googleusercontent.com";
+  const API_BASE_URL = "http://localhost:5000/api/v1/auth";
+
+  // Initialize Google Identity Services
+  useEffect(() => {
+    const initGoogle = () => {
+      try {
+        if (!window.google?.accounts?.id) return;
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+      } catch (err) {
+        console.warn("Google Identity initialization:", err);
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      initGoogle();
     } else {
-      setFormData({
-        name: "",
-        email: "alex.morgan@ados.io",
-        password: "Password@2026",
-        confirmPassword: "",
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = initGoogle;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const handleGoogleResponse = async (response) => {
+    const credential = response?.credential;
+    if (!credential) {
+      triggerToast("error", "Google authentication returned no credential.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ credential }),
       });
-      triggerToast("success", "Demo login credentials filled!");
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Google authentication failed.");
+      }
+
+      if (data.data?.accessToken) {
+        localStorage.setItem("ados_token", data.data.accessToken);
+        if (data.data.user) {
+          localStorage.setItem("ados_user", JSON.stringify(data.data.user));
+        }
+      }
+
+      // If running in a popup window, pass user to opener and close self immediately
+      if (window.opener && window.opener !== window) {
+        try {
+          window.opener.postMessage(
+            { type: "GOOGLE_AUTH_SUCCESS", user: data.data?.user },
+            window.location.origin
+          );
+        } catch (e) {}
+        window.close();
+        return;
+      }
+
+      triggerToast("success", `Signed in with Google as ${data.data?.user?.name || "Advertiser"}!`);
+      setTimeout(() => {
+        if (onLoginSuccess) {
+          onLoginSuccess(data.data?.user || { name: "Advertiser" });
+        }
+      }, 200);
+    } catch (err) {
+      triggerToast("error", err.message || "Failed to authenticate with Google.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const API_BASE_URL = "http://localhost:5000/api/v1/auth";
+  const handleGoogleButtonClick = () => {
+    setIsLoading(true);
+    triggerToast("info", "Redirecting to Google secure authentication...");
+    // Pure full-browser redirect: opens Google login directly in the entire browser window
+    const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=http://localhost:5173/auth&response_type=token%20id_token&scope=openid%20email%20profile&nonce=${Date.now()}`;
+    window.location.assign(oauthUrl);
+  };
 
-  // Check for email verification token in URL params on page load
+  // Listen for messages from popup window
   useEffect(() => {
+    const handleAuthMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "GOOGLE_AUTH_CREDENTIAL" && event.data?.credential) {
+        handleGoogleResponse({ credential: event.data.credential });
+      } else if (event.data?.type === "GOOGLE_AUTH_SUCCESS" && event.data?.user) {
+        triggerToast("success", `Signed in with Google as ${event.data.user.name || "Advertiser"}!`);
+        if (onLoginSuccess) {
+          onLoginSuccess(event.data.user);
+        }
+      }
+    };
+
+    window.addEventListener("message", handleAuthMessage);
+    return () => window.removeEventListener("message", handleAuthMessage);
+  }, [onLoginSuccess]);
+
+  // Check for email verification token or OAuth popup response in URL
+  useEffect(() => {
+    if (window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const idToken = hashParams.get("id_token");
+      if (idToken) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        // If this window is a popup opened by the main window:
+        if (window.opener && window.opener !== window) {
+          try {
+            window.opener.postMessage(
+              { type: "GOOGLE_AUTH_CREDENTIAL", credential: idToken },
+              window.location.origin
+            );
+          } catch (e) {}
+          // Close popup immediately so dashboard opens in the main window!
+          window.close();
+          return;
+        }
+
+        handleGoogleResponse({ credential: idToken });
+        return;
+      }
+    }
+
     const params = new URLSearchParams(window.location.search);
     const token = params.get("verifyToken") || params.get("token");
     if (token) {
-      // Immediately remove token from browser URL bar to mitigate token leakage
       window.history.replaceState({}, document.title, window.location.pathname);
       handleTokenVerification(token);
     }
@@ -134,12 +244,24 @@ export default function FullPageAuth({ onLoginSuccess }) {
           message: data.message || "Your email address is already verified.",
         });
       } else {
+        if (data.data?.accessToken) {
+          localStorage.setItem("ados_token", data.data.accessToken);
+          if (data.data.user) {
+            localStorage.setItem("ados_user", JSON.stringify(data.data.user));
+          }
+        }
         setVerifyModal({
           isOpen: true,
           status: "success",
           email: data.data?.user?.email || "",
           message: data.message || "Email verified successfully!",
         });
+        triggerToast("success", "Email verified! Redirecting to dashboard...");
+        setTimeout(() => {
+          if (onLoginSuccess) {
+            onLoginSuccess(data.data?.user || { email: data.data?.user?.email });
+          }
+        }, 300);
       }
     } catch (err) {
       setVerifyModal({
@@ -348,13 +470,13 @@ export default function FullPageAuth({ onLoginSuccess }) {
 
         triggerToast(
           "success",
-          `Welcome back, ${data.data?.user?.name || formData.email.split("@")[0]}! Connecting...`
+          `Welcome back, ${data.data?.user?.name || formData.email.split("@")[0]}!`
         );
         setTimeout(() => {
           if (onLoginSuccess) {
             onLoginSuccess(data.data?.user || { name: formData.email.split("@")[0] });
           }
-        }, 600);
+        }, 200);
       }
     } catch (err) {
       triggerToast("error", err.message || "Failed to connect to authentication server.");
@@ -682,78 +804,35 @@ export default function FullPageAuth({ onLoginSuccess }) {
           </form>
 
           {/* Social Divider */}
-          <div className="text-center my-6">
-            <span className="text-xs font-normal text-slate-400">
-              {mode === "signup" ? "or sign up with" : "or sign in with"}
+          <div className="relative my-5 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <span className="relative bg-white px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              {mode === "signup" ? "Or sign up with" : "Or sign in with"}
             </span>
           </div>
 
-          {/* 3 Pastel Round Social Buttons (G, Microsoft, GitHub) */}
-          <div className="flex items-center justify-center gap-3.5">
-            {/* Google */}
+          {/* Real Google OAuth Action */}
+          <div className="space-y-3">
             <motion.button
-              whileHover={{ scale: 1.12 }}
-              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               type="button"
-              onClick={() =>
-                triggerToast("success", "Google authentication initiated")
-              }
-              className="w-10 h-10 rounded-full bg-[#eef7e1] hover:bg-[#e2f2ce] flex items-center justify-center text-[#213b14] font-bold text-sm transition-colors cursor-pointer shadow-xs"
-              title="Sign in with Google"
+              id="google-signin-btn"
+              onClick={handleGoogleButtonClick}
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 font-bold text-xs transition-all shadow-xs hover:shadow-sm cursor-pointer disabled:opacity-50"
+              title="Authenticate securely with Google"
             >
-              G
-            </motion.button>
-
-            {/* Microsoft 4-Pane Grid */}
-            <motion.button
-              whileHover={{ scale: 1.12 }}
-              whileTap={{ scale: 0.92 }}
-              type="button"
-              onClick={() =>
-                triggerToast("success", "Microsoft single sign-on initiated")
-              }
-              className="w-10 h-10 rounded-full bg-[#eef7e1] hover:bg-[#e2f2ce] flex items-center justify-center text-[#213b14] font-bold text-sm transition-colors cursor-pointer shadow-xs"
-              title="Sign in with Microsoft"
-            >
-              <div className="grid grid-cols-2 gap-0.5 w-3.5 h-3.5">
-                <span className="bg-[#213b14] rounded-[1px]" />
-                <span className="bg-[#213b14] rounded-[1px]" />
-                <span className="bg-[#213b14] rounded-[1px]" />
-                <span className="bg-[#213b14] rounded-[1px]" />
-              </div>
-            </motion.button>
-
-            {/* GitHub */}
-            <motion.button
-              whileHover={{ scale: 1.12 }}
-              whileTap={{ scale: 0.92 }}
-              type="button"
-              onClick={() =>
-                triggerToast("success", "GitHub authentication initiated")
-              }
-              className="w-10 h-10 rounded-full bg-[#eef7e1] hover:bg-[#e2f2ce] flex items-center justify-center text-[#213b14] font-bold text-sm transition-colors cursor-pointer shadow-xs"
-              title="Sign in with GitHub"
-            >
-              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
               </svg>
+              <span>Continue with Google</span>
             </motion.button>
-          </div>
-
-          {/* Direct Demo Ad Dashboard Entry */}
-          <div className="text-center mt-3.5">
-            <button
-              type="button"
-              onClick={() => {
-                triggerToast("success", "Entering ADOS Live Ad Intelligence Dashboard...");
-                setTimeout(() => {
-                  if (onLoginSuccess) onLoginSuccess({ name: "Advertiser" });
-                }, 300);
-              }}
-              className="px-4 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs hover:scale-105"
-            >
-              <span>⚡ View Live Ad Dashboard Directly</span>
-            </button>
           </div>
 
           {/* Terms and Privacy Notice */}

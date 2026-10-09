@@ -1,6 +1,10 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import authRoutes from "./auth.routes.js";
+import adRoutes from "./ad.routes.js";
+import accountRoutes from "./account.routes.js";
+import teamRoutes from "./team.routes.js";
+import settingsRoutes from "./settings.routes.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
 const apiRouter = Router();
@@ -29,5 +33,10 @@ apiRouter.get("/health", (req, res) => {
  * Mount Resource Routes
  */
 apiRouter.use("/auth", authRoutes);
+apiRouter.use("/ads", adRoutes);
+apiRouter.use("/accounts", accountRoutes);
+apiRouter.use("/team", teamRoutes);
+apiRouter.use("/settings", settingsRoutes);
 
 export default apiRouter;
+

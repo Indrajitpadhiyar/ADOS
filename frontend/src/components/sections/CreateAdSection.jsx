@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PlatformLogo from "../common/PlatformLogo";
+import { api } from "../../services/api";
 import {
   Sparkles,
   Wand2,
@@ -514,7 +515,24 @@ export default function CreateAdSection({ onAdCreated }) {
       );
     }, 1500);
 
-    setTimeout(() => {
+    setTimeout(async () => {
+      try {
+        await api.createAd({
+          name: adName || "New_Campaign_Ad",
+          campaign: campaignName || "Ados_MultiNetwork_Scale",
+          platform: previewPlatform === "facebook" ? "meta" : previewPlatform || "meta",
+          format: creativeType === "video" ? "Video (9:16)" : "Display Poster (1:1)",
+          thumbnail: creativeType === "video" ? selectedVideo?.thumbnail : selectedPoster?.image,
+          budget: totalDailyBudget,
+          destinationUrl: targetUrl,
+          creativeTitle: headline,
+          primaryText: caption,
+          category: "Multi-Platform Growth",
+        });
+      } catch (err) {
+        console.warn("Notice: Failed to persist created ad to database:", err);
+      }
+
       setIsSubmitting(false);
       setLaunchStepText("");
       setCampaignLaunchedData({

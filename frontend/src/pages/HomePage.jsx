@@ -13,7 +13,7 @@ import AiAgentSection from "../components/sections/AiAgentSection";
 import AboutSection from "../components/sections/AboutSection";
 import ContactModal from "../components/common/ContactModal";
 
-export default function HomePage() {
+export default function HomePage({ user }) {
   const navigate = useNavigate();
   const [isContactOpen, setIsContactOpen] = useState(false);
 
@@ -52,6 +52,7 @@ export default function HomePage() {
     <div className="relative w-full min-h-screen bg-[#fafbfc] text-[#121214] font-['Plus_Jakarta_Sans',sans-serif] selection:bg-slate-900 selection:text-white overflow-hidden">
       {/* Top Navbar */}
       <Navbar
+        user={user}
         onOpenContact={() => setIsContactOpen(true)}
         onOpenAuth={() => navigate("/auth")}
         onOpenDashboard={() => navigate("/dashboard")}

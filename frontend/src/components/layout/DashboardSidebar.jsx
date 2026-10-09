@@ -201,8 +201,14 @@ export default function DashboardSidebar({
             onClick={() => handleItemClick("manage-account")}
             className="flex items-center gap-3 cursor-pointer group"
           >
-            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-xs shadow-xs group-hover:bg-[#ff4a22] transition-colors">
-              {user?.name ? user.name.slice(0, 2).toUpperCase() : "AD"}
+            <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-900 text-white flex items-center justify-center font-extrabold text-xs shadow-xs group-hover:bg-[#ff4a22] transition-colors">
+              {user?.avatar ? (
+                <img src={user.avatar} alt={user?.name || "User"} className="w-full h-full object-cover" />
+              ) : user?.name ? (
+                user.name.slice(0, 2).toUpperCase()
+              ) : (
+                "AD"
+              )}
             </div>
             <div className="flex flex-col truncate">
               <span className="text-xs font-extrabold text-[#111113] group-hover:text-[#ff4a22] transition-colors truncate max-w-[120px]">

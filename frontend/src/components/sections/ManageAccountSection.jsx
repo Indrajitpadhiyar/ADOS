@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PlatformLogo from "../common/PlatformLogo";
+import { api } from "../../services/api";
 import {
   UserCheck,
   Building2,
@@ -27,69 +28,6 @@ import {
   Layers,
   ChevronRight,
 } from "lucide-react";
-
-const INITIAL_ACCOUNTS = [
-  {
-    id: "meta-01",
-    name: "Meta Ads Manager (Facebook & Instagram)",
-    accountId: "act_849201948",
-    platform: "meta",
-    status: "Healthy",
-    lastSync: "32 seconds ago",
-    activeCampaigns: 6,
-    iconBg: "bg-blue-600",
-    currency: "USD ($)",
-    spendCap: "$25,000/mo",
-  },
-  {
-    id: "google-01",
-    name: "Google Ads MCC (Search & PMax)",
-    accountId: "492-019-3829",
-    platform: "google",
-    status: "Healthy",
-    lastSync: "1 minute ago",
-    activeCampaigns: 8,
-    iconBg: "bg-emerald-600",
-    currency: "USD ($)",
-    spendCap: "$35,000/mo",
-  },
-  {
-    id: "linkedin-01",
-    name: "LinkedIn Campaign Manager",
-    accountId: "li_corp_840192",
-    platform: "linkedin",
-    status: "Healthy",
-    lastSync: "14 seconds ago",
-    activeCampaigns: 4,
-    iconBg: "bg-blue-700",
-    currency: "USD ($)",
-    spendCap: "$15,000/mo",
-  },
-  {
-    id: "amazon-01",
-    name: "Amazon Advertising DSP",
-    accountId: "amzn_dsp_9102",
-    platform: "amazon",
-    status: "Healthy",
-    lastSync: "4 minutes ago",
-    activeCampaigns: 3,
-    iconBg: "bg-amber-600",
-    currency: "USD ($)",
-    spendCap: "$18,000/mo",
-  },
-  {
-    id: "youtube-01",
-    name: "YouTube Video / DV360",
-    accountId: "yt_brand_9918",
-    platform: "youtube",
-    status: "Healthy",
-    lastSync: "2 minutes ago",
-    activeCampaigns: 2,
-    iconBg: "bg-red-600",
-    currency: "USD ($)",
-    spendCap: "$12,000/mo",
-  },
-];
 
 const PLATFORM_PRESETS = [
   {
@@ -167,45 +105,11 @@ const PLATFORM_PRESETS = [
   },
 ];
 
-const INITIAL_TEAM = [
-  {
-    id: "u-1",
-    name: "Indrajit Padhiyar",
-    email: "indrajit@ados.io",
-    role: "Owner / Master Admin",
-    access: "Full Access",
-    avatar: "IP",
-  },
-  {
-    id: "u-2",
-    name: "Sarah Chen",
-    email: "sarah.c@ados.io",
-    role: "Lead Media Buyer",
-    access: "Campaigns & Budgets",
-    avatar: "SC",
-  },
-  {
-    id: "u-3",
-    name: "Alex Rivera",
-    email: "alex.r@ados.io",
-    role: "Growth Specialist",
-    access: "Creatives & Analytics",
-    avatar: "AR",
-  },
-  {
-    id: "u-4",
-    name: "Elena Rostova",
-    email: "elena.r@ados.io",
-    role: "Data Analyst",
-    access: "Read-Only Telemetry",
-    avatar: "ER",
-  },
-];
-
 export default function ManageAccountSection() {
   const [activeTab, setActiveTab] = useState("networks"); // 'networks' | 'add-account' | 'team' | 'billing' | 'organization'
-  const [accounts, setAccounts] = useState(INITIAL_ACCOUNTS);
-  const [team, setTeam] = useState(INITIAL_TEAM);
+  const [accounts, setAccounts] = useState([]);
+  const [team, setTeam] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Add New Account Form States
   const [selectedPlatform, setSelectedPlatform] = useState("meta");
@@ -237,6 +141,40 @@ export default function ManageAccountSection() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  useEffect(() => {
+    loadAccountData();
+  }, []);
+
+  const loadAccountData = async () => {
+    try {
+      setIsLoadingData(true);
+      const [accs, teamMembers] = await Promise.all([
+        api.getAccounts().catch(() => []),
+        api.getTeam().catch(() => []),
+      ]);
+      if (Array.isArray(accs)) {
+        setAccounts(accs.map((a) => ({ ...a, id: a._id })));
+      }
+      if (Array.isArray(teamMembers)) {
+        setTeam(
+          teamMembers.map((m) => ({
+            ...m,
+            id: m._id,
+            access:
+              m.role === "Admin"
+                ? "Full Access"
+                : m.role === "Media Buyer"
+                ? "Campaigns & Budgets"
+                : "Read-Only Telemetry",
+            avatar: m.avatar || m.name.slice(0, 2).toUpperCase(),
+          }))
+        );
+      }
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
   // When changing platform preset, auto-suggest account name & prefix
   const handleSelectPlatform = (platformId) => {
     setSelectedPlatform(platformId);
@@ -253,7 +191,7 @@ export default function ManageAccountSection() {
   };
 
   // Handle Add New Account Submission
-  const handleAddAccountSubmit = (e) => {
+  const handleAddAccountSubmit = async (e) => {
     e.preventDefault();
     if (!newAccountName || !newAccountId) {
       showToast("Please provide both account name and account ID.");
@@ -271,60 +209,81 @@ export default function ManageAccountSection() {
       setVerifyStep("Synchronizing live campaign telemetry & pixel attribution...");
     }, 1100);
 
-    setTimeout(() => {
-      setIsVerifying(false);
-      setVerifyStep("");
-
+    setTimeout(async () => {
       const currentPreset = PLATFORM_PRESETS.find((p) => p.id === selectedPlatform) || PLATFORM_PRESETS[0];
 
-      const created = {
-        id: `${selectedPlatform}-${Date.now()}`,
-        name: newAccountName,
-        accountId: newAccountId,
-        platform: selectedPlatform,
-        status: "Healthy",
-        lastSync: "Just now",
-        activeCampaigns: Math.floor(2 + Math.random() * 6),
-        iconBg: currentPreset.color,
-        currency,
-        spendCap: `${monthlySpendCap}/mo`,
-      };
+      try {
+        const created = await api.connectAccount({
+          name: newAccountName,
+          accountId: newAccountId,
+          platform: selectedPlatform,
+          currency,
+          spendCap: `${monthlySpendCap}/mo`,
+          iconBg: currentPreset.color,
+        });
 
-      setAccounts([created, ...accounts]);
-      setJustAddedAccount(created);
-      setAccountCreatedModal(true);
+        const formatted = { ...created, id: created._id };
+        setAccounts([formatted, ...accounts]);
+        setJustAddedAccount(formatted);
+        setAccountCreatedModal(true);
+      } catch (err) {
+        showToast(err.message || "Failed to connect account.");
+      } finally {
+        setIsVerifying(false);
+        setVerifyStep("");
+      }
     }, 1700);
   };
 
   // Delete / Disconnect account
-  const handleDisconnectAccount = (id, name) => {
+  const handleDisconnectAccount = async (id, name) => {
     if (window.confirm(`Are you sure you want to disconnect "${name}"? ADOS will cease automated bid routing for this account.`)) {
       setAccounts(accounts.filter((a) => a.id !== id));
       showToast(`Disconnected ${name}`);
+      try {
+        await api.disconnectAccount(id);
+      } catch (err) {
+        console.error("Failed to disconnect account on backend:", err);
+      }
     }
   };
 
-  const handleInviteSubmit = (e) => {
+  const handleInviteSubmit = async (e) => {
     e.preventDefault();
     if (!inviteEmail || !inviteName) return;
-    const newMember = {
-      id: `u-${Date.now()}`,
-      name: inviteName,
-      email: inviteEmail,
-      role: inviteRole,
-      access: "Standard Editor",
-      avatar: inviteName.slice(0, 2).toUpperCase(),
-    };
-    setTeam([...team, newMember]);
-    setIsInviteOpen(false);
-    setInviteEmail("");
-    setInviteName("");
-    showToast(`Invitation sent to ${newMember.email}`);
+
+    try {
+      const member = await api.inviteTeamMember({
+        name: inviteName,
+        email: inviteEmail,
+        role: inviteRole,
+      });
+
+      const formatted = {
+        ...member,
+        id: member._id,
+        access: inviteRole === "Admin" ? "Full Access" : "Campaigns & Budgets",
+        avatar: inviteName.slice(0, 2).toUpperCase(),
+      };
+
+      setTeam([...team, formatted]);
+      setIsInviteOpen(false);
+      setInviteEmail("");
+      setInviteName("");
+      showToast(`Invitation sent to ${member.email}`);
+    } catch (err) {
+      showToast(err.message || "Failed to invite team member.");
+    }
   };
 
-  const handleRemoveMember = (id, name) => {
+  const handleRemoveMember = async (id, name) => {
     setTeam(team.filter((m) => m.id !== id));
     showToast(`Removed ${name} from organization`);
+    try {
+      await api.removeTeamMember(id);
+    } catch (err) {
+      console.error("Failed to remove member on backend:", err);
+    }
   };
 
   const handleSyncAccount = (name) => {

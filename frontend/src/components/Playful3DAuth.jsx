@@ -43,23 +43,6 @@ export default function Playful3DAuth() {
     setTimeout(() => setToast(null), 4500);
   };
 
-  const handleQuickFill = () => {
-    if (mode === "signup") {
-      setFormData({
-        name: "Alex Morgan",
-        email: "alex.morgan@ados.io",
-        password: "Password@2026",
-      });
-      triggerToast("success", "Demo sign up credentials applied!");
-    } else {
-      setFormData({
-        name: "",
-        email: "alex.morgan@ados.io",
-        password: "Password@2026",
-      });
-      triggerToast("success", "Demo login credentials applied!");
-    }
-  };
 
   const handleSubmit = (e) => {
     e.preventDefault();

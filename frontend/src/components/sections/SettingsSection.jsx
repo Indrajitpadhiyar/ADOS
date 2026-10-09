@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { api } from "../../services/api";
 import {
   Settings,
   Key,
@@ -13,6 +14,7 @@ import {
   Sliders,
   Sparkles,
   Zap,
+  RefreshCw,
 } from "lucide-react";
 
 export default function SettingsSection() {
@@ -20,6 +22,7 @@ export default function SettingsSection() {
   const [apiKeyCopied, setApiKeyCopied] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [saveNotice, setSaveNotice] = useState(false);
+  const [isRotatingKey, setIsRotatingKey] = useState(false);
 
   // Settings state
   const [attributionModel, setAttributionModel] = useState("data_driven");
@@ -29,18 +32,66 @@ export default function SettingsSection() {
   const [autoPauseFatigue, setAutoPauseFatigue] = useState(true);
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [slackAlerts, setSlackAlerts] = useState(true);
+  const [apiKey, setApiKey] = useState("Loading API key...");
 
-  const rawKey = "ados_live_sec_894102938471029481729481";
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const data = await api.getSettings();
+      if (data) {
+        if (data.attributionModel) setAttributionModel(data.attributionModel);
+        if (data.refreshRate) setRefreshRate(data.refreshRate);
+        if (data.webhookUrl) setWebhookUrl(data.webhookUrl);
+        if (data.minRoasAlert !== undefined) setMinRoasAlert(data.minRoasAlert);
+        if (data.autoPauseFatigue !== undefined) setAutoPauseFatigue(data.autoPauseFatigue);
+        if (data.emailAlerts !== undefined) setEmailAlerts(data.emailAlerts);
+        if (data.slackAlerts !== undefined) setSlackAlerts(data.slackAlerts);
+        if (data.apiKey) setApiKey(data.apiKey);
+      }
+    } catch (err) {
+      console.warn("Notice: Failed to fetch settings:", err.message);
+    }
+  };
 
   const handleCopyKey = () => {
-    navigator.clipboard.writeText(rawKey);
+    navigator.clipboard.writeText(apiKey);
     setApiKeyCopied(true);
     setTimeout(() => setApiKeyCopied(false), 2500);
   };
 
-  const handleSave = () => {
-    setSaveNotice(true);
-    setTimeout(() => setSaveNotice(false), 3000);
+  const handleRotateKey = async () => {
+    try {
+      setIsRotatingKey(true);
+      const res = await api.regenerateApiKey();
+      if (res?.apiKey) {
+        setApiKey(res.apiKey);
+      }
+    } catch (err) {
+      console.error("Failed to regenerate key:", err);
+    } finally {
+      setIsRotatingKey(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      await api.updateSettings({
+        attributionModel,
+        refreshRate,
+        webhookUrl,
+        minRoasAlert,
+        autoPauseFatigue,
+        emailAlerts,
+        slackAlerts,
+      });
+      setSaveNotice(true);
+      setTimeout(() => setSaveNotice(false), 3000);
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+    }
   };
 
   return (
@@ -181,30 +232,42 @@ export default function SettingsSection() {
                 {showKey ? "Hide Secret" : "Reveal Secret"}
               </button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <input
                 type={showKey ? "text" : "password"}
                 readOnly
-                value={rawKey}
+                value={apiKey}
                 className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-800"
               />
-              <button
-                type="button"
-                onClick={handleCopyKey}
-                className="px-4 py-2 bg-[#111113] hover:bg-black text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shrink-0"
-              >
-                {apiKeyCopied ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleCopyKey}
+                  className="px-4 py-2 bg-[#111113] hover:bg-black text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+                >
+                  {apiKeyCopied ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRotateKey}
+                  disabled={isRotatingKey}
+                  className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Generate a new live API secret key"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRotatingKey ? "animate-spin" : ""}`} />
+                  <span>Rotate</span>
+                </button>
+              </div>
             </div>
           </div>
 

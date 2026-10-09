@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import AuthPage from "./pages/AuthPage";
@@ -7,16 +7,36 @@ import ManageAdsPage from "./pages/ManageAdsPage";
 import CreateAdPage from "./pages/CreateAdPage";
 import ManageAccountPage from "./pages/ManageAccountPage";
 import SettingsPage from "./pages/SettingsPage";
+import { api } from "./services/api";
 
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem("ados_user");
-      return stored ? JSON.parse(stored) : { name: "Advertiser" };
+      return stored ? JSON.parse(stored) : null;
     } catch {
-      return { name: "Advertiser" };
+      return null;
     }
   });
+
+  // Verify backend session on mount
+  useEffect(() => {
+    const token = localStorage.getItem("ados_token");
+    if (token) {
+      api.getMe()
+        .then((res) => {
+          if (res?.user) {
+            setUser(res.user);
+            localStorage.setItem("ados_user", JSON.stringify(res.user));
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem("ados_token");
+          localStorage.removeItem("ados_user");
+          setUser(null);
+        });
+    }
+  }, []);
 
   const handleLoginSuccess = (userData) => {
     if (userData) {
@@ -25,48 +45,83 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("ados_token");
-    localStorage.removeItem("ados_user");
-    setUser({ name: "Advertiser" });
+  const handleLogout = async () => {
+    await api.logout();
+    setUser(null);
   };
 
   return (
     <BrowserRouter>
       <Routes>
         {/* Landing Page */}
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<HomePage user={user} />} />
 
         {/* Authentication Page */}
         <Route
           path="/auth"
-          element={<AuthPage onLoginSuccess={handleLoginSuccess} />}
+          element={
+            user ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <AuthPage onLoginSuccess={handleLoginSuccess} />
+            )
+          }
         />
 
         {/* Main Dashboard Overview */}
         <Route
           path="/dashboard"
-          element={<DashboardPage user={user} onLogout={handleLogout} />}
+          element={
+            user ? (
+              <DashboardPage user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/auth" replace />
+            )
+          }
         />
 
         {/* Manage Ads Page */}
         <Route
           path="/manage-ads"
-          element={<ManageAdsPage user={user} onLogout={handleLogout} />}
+          element={
+            user ? (
+              <ManageAdsPage user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/auth" replace />
+            )
+          }
         />
         <Route
           path="/dashboard/manage-ads"
-          element={<ManageAdsPage user={user} onLogout={handleLogout} />}
+          element={
+            user ? (
+              <ManageAdsPage user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/auth" replace />
+            )
+          }
         />
 
         {/* Create Ad Page */}
         <Route
           path="/create-ads"
-          element={<CreateAdPage user={user} onLogout={handleLogout} />}
+          element={
+            user ? (
+              <CreateAdPage user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/auth" replace />
+            )
+          }
         />
         <Route
           path="/dashboard/create-ads"
-          element={<CreateAdPage user={user} onLogout={handleLogout} />}
+          element={
+            user ? (
+              <CreateAdPage user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/auth" replace />
+            )
+          }
         />
 
         {/* Redirect old campaign route to Create Ads */}
@@ -82,21 +137,45 @@ export default function App() {
         {/* Manage Connected Accounts & Team */}
         <Route
           path="/manage-account"
-          element={<ManageAccountPage user={user} onLogout={handleLogout} />}
+          element={
+            user ? (
+              <ManageAccountPage user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/auth" replace />
+            )
+          }
         />
         <Route
           path="/dashboard/manage-account"
-          element={<ManageAccountPage user={user} onLogout={handleLogout} />}
+          element={
+            user ? (
+              <ManageAccountPage user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/auth" replace />
+            )
+          }
         />
 
         {/* System Settings & API */}
         <Route
           path="/settings"
-          element={<SettingsPage user={user} onLogout={handleLogout} />}
+          element={
+            user ? (
+              <SettingsPage user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/auth" replace />
+            )
+          }
         />
         <Route
           path="/dashboard/settings"
-          element={<SettingsPage user={user} onLogout={handleLogout} />}
+          element={
+            user ? (
+              <SettingsPage user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/auth" replace />
+            )
+          }
         />
 
         {/* Catch-all redirect */}

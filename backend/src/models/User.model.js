@@ -24,9 +24,36 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
-      minlength: [8, "Password must be at least 8 characters"],
+      required: function () {
+        return !this.googleId;
+      },
       select: false, // Prevents accidental exposure in queries
+    },
+    googleId: {
+      type: String,
+      sparse: true,
+      index: true,
+      select: false,
+    },
+    avatar: {
+      type: String,
+      default: null,
+    },
+    company: {
+      type: String,
+      default: "",
+    },
+    timezone: {
+      type: String,
+      default: "America/New_York (UTC-5)",
+    },
+    currency: {
+      type: String,
+      default: "USD ($)",
+    },
+    apiKey: {
+      type: String,
+      select: false,
     },
     role: {
       type: String,
@@ -97,6 +124,7 @@ const userSchema = new mongoose.Schema(
         delete ret.emailVerificationExpires;
         delete ret.loginAttempts;
         delete ret.lockUntil;
+        delete ret.googleId;
         delete ret.__v;
         return ret;
       },
@@ -106,7 +134,7 @@ const userSchema = new mongoose.Schema(
 
 // Hash password before saving if modified
 userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
+  if (!this.isModified("password") || !this.password) return;
 
   // Only hash if not already a bcrypt hash
   if (!this.password.startsWith("$2a$") && !this.password.startsWith("$2b$")) {

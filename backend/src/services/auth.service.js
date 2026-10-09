@@ -6,6 +6,8 @@ import { ResponseMessages } from "../constants/responseMessages.js";
 import { SecurityLogger } from "../utils/securityLogger.util.js";
 import { env } from "../config/env.js";
 import { EmailService } from "./email.service.js";
+import { OAuth2Client } from "google-auth-library";
+import { seedInitialUserData } from "../utils/starterData.util.js";
 import bcrypt from "bcryptjs";
 
 /**
@@ -55,6 +57,9 @@ export const AuthService = {
 
     user.refreshToken = TokenUtil.hashToken(refreshToken);
     await user.save({ validateBeforeSave: false });
+
+    // Seed initial MongoDB dataset for new user account
+    await seedInitialUserData(user);
 
     SecurityLogger.log("AUTH_REGISTER_SUCCESS", {
       req: context.req,
@@ -156,6 +161,9 @@ export const AuthService = {
     // Persist hashed refresh token for session tracking
     await User.updateOne({ _id: user._id }, { refreshToken: TokenUtil.hashToken(refreshToken) });
 
+    // Ensure authentic dataset exists for this user in MongoDB
+    await seedInitialUserData(user);
+
     SecurityLogger.log("AUTH_LOGIN_SUCCESS", {
       req: context.req,
       userId: user._id,
@@ -252,6 +260,19 @@ export const AuthService = {
       userId,
       outcome: "SUCCESS",
     });
+  },
+
+  /**
+   * Fetch current authenticated user profile
+   * @param {string} userId
+   * @returns {Promise<Object>}
+   */
+  async getCurrentUser(userId) {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw ApiError.notFound("User not found.");
+    }
+    return user.toJSON();
   },
 
   /**
@@ -610,4 +631,120 @@ export const AuthService = {
 
     return { message: ResponseMessages.RESEND_VERIFICATION_DISPATCHED };
   },
+
+  /**
+   * Google OAuth authentication handler
+   * Supports Google Identity Services (GIS) ID Token credentials, Access Tokens, and Authorization Codes.
+   * @param {Object} payload - { credential, token, code, accessToken, idToken }
+   * @param {Object} [context] - { req }
+   * @returns {Promise<{ user: Object, accessToken: string, refreshToken: string }>}
+   */
+  async googleAuth({ credential, token, code, accessToken, idToken }, context = {}) {
+    const rawCredential = credential || token || idToken;
+    let googleUser = null;
+
+    if (rawCredential) {
+      try {
+        const client = new OAuth2Client(env.GOOGLE_CLIENT_ID || env.GOOGLE_ADS_CLINT_ID);
+        const ticket = await client.verifyIdToken({
+          idToken: rawCredential,
+          audience: [env.GOOGLE_CLIENT_ID, env.GOOGLE_ADS_CLINT_ID].filter(Boolean),
+        });
+        googleUser = ticket.getPayload();
+      } catch (verifyError) {
+        // Fallback: verify directly via Google tokeninfo endpoint
+        const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${rawCredential}`);
+        if (!res.ok) {
+          throw ApiError.unauthorized("Failed to verify Google identity credential.");
+        }
+        googleUser = await res.json();
+      }
+    } else if (code) {
+      const client = new OAuth2Client(
+        env.GOOGLE_CLIENT_ID || env.GOOGLE_ADS_CLINT_ID,
+        env.GOOGLE_CLIENT_SECRET || env.GOOGLE_ADS_CLINT_SCRIPT,
+        "postmessage"
+      );
+      try {
+        const { tokens } = await client.getToken(code);
+        if (tokens.id_token) {
+          const ticket = await client.verifyIdToken({
+            idToken: tokens.id_token,
+            audience: [env.GOOGLE_CLIENT_ID, env.GOOGLE_ADS_CLINT_ID].filter(Boolean),
+          });
+          googleUser = ticket.getPayload();
+        } else if (tokens.access_token) {
+          const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+            headers: { Authorization: `Bearer ${tokens.access_token}` },
+          });
+          if (res.ok) googleUser = await res.json();
+        }
+      } catch (err) {
+        throw ApiError.unauthorized("Failed to exchange Google authorization code.");
+      }
+    } else if (accessToken) {
+      const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        throw ApiError.unauthorized("Failed to fetch Google user profile with access token.");
+      }
+      googleUser = await res.json();
+    }
+
+    if (!googleUser || !googleUser.email) {
+      throw ApiError.badRequest("Invalid Google profile response.");
+    }
+
+    const email = googleUser.email.toLowerCase().trim();
+    const name = googleUser.name || email.split("@")[0];
+    const avatar = googleUser.picture || null;
+    const googleId = googleUser.sub || googleUser.id;
+
+    // Check if user exists
+    let user = await User.findOne({ email });
+
+    if (user) {
+      user.googleId = googleId;
+      if (avatar && !user.avatar) user.avatar = avatar;
+      user.emailVerified = true;
+      user.isVerified = true;
+      user.lastLoginAt = new Date();
+      await user.save({ validateBeforeSave: false });
+    } else {
+      user = await User.create({
+        name,
+        email,
+        googleId,
+        avatar,
+        emailVerified: true,
+        isVerified: true,
+        lastLoginAt: new Date(),
+      });
+    }
+
+    // Seed initial MongoDB dataset for new user account
+    await seedInitialUserData(user);
+
+    // Generate JWTs
+    const tokenPayload = { id: user._id.toString(), email: user.email, role: user.role };
+    const jwtAccessToken = TokenUtil.generateAccessToken(tokenPayload);
+    const refreshToken = TokenUtil.generateRefreshToken({ id: user._id.toString() });
+
+    await User.updateOne({ _id: user._id }, { refreshToken: TokenUtil.hashToken(refreshToken) });
+
+    SecurityLogger.log("AUTH_GOOGLE_SUCCESS", {
+      req: context.req,
+      userId: user._id,
+      email: user.email,
+      outcome: "SUCCESS",
+    });
+
+    return {
+      user: user.toJSON(),
+      accessToken: jwtAccessToken,
+      refreshToken,
+    };
+  },
 };
+

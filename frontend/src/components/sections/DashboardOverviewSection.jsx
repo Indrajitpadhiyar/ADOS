@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PlatformLogo from "../common/PlatformLogo";
+import { api } from "../../services/api";
 import {
   TrendingUp,
   DollarSign,
@@ -46,108 +47,58 @@ export default function DashboardOverviewSection({ user, onNavigate }) {
   // Hover index for chart
   const [hoverIndex, setHoverIndex] = useState(null);
 
-  // Master campaigns list (reactive so status can be toggled)
-  const [campaigns, setCampaigns] = useState([
-    {
-      id: "c-1",
-      name: "Meta_Advantage_Plus_HeroPack",
-      platform: "facebook",
-      category: "Meta Ads",
-      price: "$1,850",
-      pacingPercent: 88,
-      pacingColor: "bg-[#0f766e]",
-      stockVal: 120,
-      status: "Active",
-      statusType: "active",
-      sales: "2,410",
-      roas: "5.12x",
-      lastUpdated: "Apr 28, 2026",
-      avatar: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=120&auto=format&fit=crop&q=80",
-    },
-    {
-      id: "c-2",
-      name: "Facebook_Reels_Viral_UGC_Hook",
-      platform: "facebook",
-      category: "Meta Ads",
-      price: "$1,200",
-      pacingPercent: 74,
-      pacingColor: "bg-[#0f766e]",
-      stockVal: 80,
-      status: "Active",
-      statusType: "active",
-      sales: "1,890",
-      roas: "5.40x",
-      lastUpdated: "Apr 29, 2026",
-      avatar: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=120&auto=format&fit=crop&q=80",
-    },
-    {
-      id: "c-3",
-      name: "Google_PMax_BestSellers_AssetGroup",
-      platform: "google",
-      category: "Google PMax",
-      price: "$1,600",
-      pacingPercent: 62,
-      pacingColor: "bg-emerald-600",
-      stockVal: 65,
-      status: "Active",
-      statusType: "active",
-      sales: "1,540",
-      roas: "4.65x",
-      lastUpdated: "Apr 27, 2026",
-      avatar: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=120&auto=format&fit=crop&q=80",
-    },
-    {
-      id: "c-4",
-      name: "Instagram_Dynamic_Catalog_DPA",
-      platform: "facebook",
-      category: "Meta Ads",
-      price: "$850",
-      pacingPercent: 45,
-      pacingColor: "bg-amber-500",
-      stockVal: 18,
-      status: "Optimizing",
-      statusType: "optimizing",
-      sales: "980",
-      roas: "4.80x",
-      lastUpdated: "Apr 27, 2026",
-      avatar: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=120&auto=format&fit=crop&q=80",
-    },
-    {
-      id: "c-5",
-      name: "LinkedIn_B2B_Executive_Growth",
-      platform: "linkedin",
-      category: "LinkedIn Ads",
-      price: "$900",
-      pacingPercent: 30,
-      pacingColor: "bg-amber-500",
-      stockVal: 8,
-      status: "Review",
-      statusType: "optimizing",
-      sales: "720",
-      roas: "3.90x",
-      lastUpdated: "Apr 26, 2026",
-      avatar: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=120&auto=format&fit=crop&q=80",
-    },
-    {
-      id: "c-6",
-      name: "Amazon_Sponsored_HeroPack_Video",
-      platform: "amazon",
-      category: "Amazon DSP",
-      price: "$450",
-      pacingPercent: 12,
-      pacingColor: "bg-rose-400",
-      stockVal: 0,
-      status: "Paused",
-      statusType: "paused",
-      sales: "410",
-      roas: "5.80x",
-      lastUpdated: "Apr 30, 2026",
-      avatar: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=120&auto=format&fit=crop&q=80",
-    },
-  ]);
+  // Live campaigns fetched from backend MongoDB
+  const [campaigns, setCampaigns] = useState([]);
+  const [stats, setStats] = useState({
+    totalSpend: "$35,960",
+    blendedRoas: "4.85x",
+    totalConversions: "6,979",
+    activeAds: 0,
+  });
 
-  // Toggle status between Active and Paused
-  const handleToggleStatus = (id) => {
+  // Fetch real ads from backend
+  useEffect(() => {
+    const fetchRealData = async () => {
+      try {
+        const adsData = await api.getAds();
+        if (Array.isArray(adsData)) {
+          const mapped = adsData.map((ad) => ({
+            id: ad._id,
+            name: ad.name,
+            platform: ad.platform === "meta" ? "facebook" : ad.platform,
+            category: ad.category || `${ad.platform} Ads`,
+            price: ad.spend || "$0",
+            pacingPercent: ad.pacingPercent || 75,
+            pacingColor: ad.pacingColor || "bg-[#0f766e]",
+            stockVal: ad.budget || 100,
+            status: ad.status === "active" ? "Active" : "Paused",
+            statusType: ad.status,
+            sales: ad.conversions || "0",
+            roas: ad.roas || "4.50x",
+            lastUpdated: new Date(ad.updatedAt || ad.createdAt || Date.now()).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }),
+            avatar: ad.thumbnail || "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=120&auto=format&fit=crop&q=80",
+          }));
+          setCampaigns(mapped);
+        }
+
+        const statsData = await api.getAdStats();
+        if (statsData) {
+          setStats(statsData);
+        }
+      } catch (err) {
+        console.warn("Telemetry fetch notice:", err.message);
+      }
+    };
+
+    fetchRealData();
+  }, []);
+
+  // Toggle status between Active and Paused via real backend
+  const handleToggleStatus = async (id) => {
     setCampaigns((prev) =>
       prev.map((c) => {
         if (c.id === id) {
@@ -161,6 +112,12 @@ export default function DashboardOverviewSection({ user, onNavigate }) {
         return c;
       })
     );
+
+    try {
+      await api.toggleAdStatus(id);
+    } catch (err) {
+      console.error("Failed to toggle status on backend:", err);
+    }
   };
 
   // Filtered campaigns based on platform and search

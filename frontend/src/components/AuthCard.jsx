@@ -78,27 +78,7 @@ export default function AuthCard({ mountainBg }) {
     }));
   };
 
-  // Quick Demo fill for test drive
-  const handleQuickFill = () => {
-    if (mode === 'login') {
-      setFormData({
-        ...formData,
-        email: 'alex.morgan@ados.io',
-        password: 'Password@2026'
-      });
-      triggerToast('success', 'Demo login credentials prefilled!');
-    } else {
-      setFormData({
-        name: 'Alex Morgan',
-        country: 'Switzerland',
-        email: 'alex.morgan@ados.io',
-        password: 'Password@2026',
-        confirmPassword: 'Password@2026',
-        rememberMe: true
-      });
-      triggerToast('success', 'Demo sign up credentials prefilled!');
-    }
-  };
+
 
   const triggerToast = (type, message) => {
     setToast({ type, message });

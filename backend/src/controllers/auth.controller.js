@@ -76,6 +76,26 @@ export const AuthController = {
   }),
 
   /**
+   * POST /api/v1/auth/google
+   */
+  google: asyncHandler(async (req, res) => {
+    const { credential, token, code, accessToken, idToken } = req.body;
+    const result = await AuthService.googleAuth(
+      { credential, token, code, accessToken, idToken },
+      { req }
+    );
+
+    res.cookie("accessToken", result.accessToken, getCookieOptions(ACCESS_COOKIE_MAX_AGE));
+    res.cookie("refreshToken", result.refreshToken, getCookieOptions(REFRESH_COOKIE_MAX_AGE));
+
+    return ApiResponse.success(res, "Google authentication successful!", {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
+  }),
+
+  /**
    * POST /api/v1/auth/refresh
    */
   refreshToken: asyncHandler(async (req, res) => {

@@ -87,27 +87,7 @@ export default function FullSizeAuth() {
     }, 4500);
   };
 
-  // Quick 1-click test fill
-  const handleQuickFill = () => {
-    if (mode === 'login') {
-      setFormData({
-        ...formData,
-        email: 'alex.morgan@ados.io',
-        password: 'Password@2026'
-      });
-      triggerToast('success', 'Demo login credentials applied!');
-    } else {
-      setFormData({
-        name: 'Alex Morgan',
-        country: 'Switzerland',
-        email: 'alex.morgan@ados.io',
-        password: 'Password@2026',
-        confirmPassword: 'Password@2026',
-        rememberMe: true
-      });
-      triggerToast('success', 'Demo sign up credentials applied!');
-    }
-  };
+
 
   const handleSubmit = (e) => {
     e.preventDefault();
