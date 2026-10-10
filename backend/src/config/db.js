@@ -12,9 +12,10 @@ import { env } from "./env.js";
 class DatabaseConnection {
   constructor() {
     this.isConnected = false;
+    this.isShuttingDown = false;
   }
 
-  async connect() {
+  async connect(retries = 3, delayMs = 2000) {
     if (this.isConnected) {
       console.log("ℹ️ MongoDB is already connected.");
       return;
@@ -24,7 +25,7 @@ class DatabaseConnection {
       maxPoolSize: 10,
       minPoolSize: 2,
       socketTimeoutMS: 45000,
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 30000,
       heartbeatFrequencyMS: 10000,
       autoIndex: env.NODE_ENV !== "production", // Don't auto-build indexes in high-scale prod
     };
@@ -42,21 +43,31 @@ class DatabaseConnection {
 
     mongoose.connection.on("disconnected", () => {
       this.isConnected = false;
-      console.warn("⚠️ MongoDB disconnected. Attempting reconnection...");
+      if (!this.isShuttingDown) {
+        console.warn("⚠️ MongoDB disconnected. Attempting reconnection...");
+      }
     });
 
-    try {
-      await mongoose.connect(env.MONGO_URL, mongooseOptions);
-    } catch (error) {
-      console.error("❌ Initial MongoDB Connection Failed:", error.message);
-      // In enterprise applications, fail-fast if DB cannot be reached at boot
-      throw error;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await mongoose.connect(env.MONGO_URL, mongooseOptions);
+        return;
+      } catch (error) {
+        console.error(`❌ MongoDB Connection Attempt ${attempt}/${retries} Failed: ${error.message}`);
+        if (attempt < retries) {
+          console.log(`⏳ Retrying MongoDB connection in ${delayMs / 1000}s...`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        } else {
+          throw error;
+        }
+      }
     }
   }
 
   async disconnect() {
     if (!this.isConnected) return;
     try {
+      this.isShuttingDown = true;
       await mongoose.connection.close(false);
       this.isConnected = false;
       console.log("🛑 MongoDB connection cleanly closed.");

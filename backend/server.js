@@ -61,6 +61,9 @@ const bootstrap = async () => {
     });
   } catch (error) {
     console.error("❌ Fatal bootstrap error:", error.message);
+    if (error.message?.includes("buffering timed out") || error.message?.includes("ETIMEDOUT") || error.message?.includes("whitelist") || error.name === "MongooseServerSelectionError") {
+      console.error("👉 Tip: Verify your IP address is whitelisted in MongoDB Atlas Network Access (or set to 0.0.0.0/0 for development): https://cloud.mongodb.com/");
+    }
     process.exit(1);
   }
 };
